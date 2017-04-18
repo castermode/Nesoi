@@ -1,0 +1,2 @@
+# Nesoi
+Global distributed database
