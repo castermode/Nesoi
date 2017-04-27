@@ -5,10 +5,11 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
-	"fmt"
-	
-	"github.com/juju/errors"
+	"time"
+
 	"github.com/castermode/Nesoi/src/sql/mysql"
+	"github.com/golang/glog"
+	"github.com/juju/errors"
 )
 
 var defaultCapability = mysql.ClientLongPassword | mysql.ClientLongFlag |
@@ -33,14 +34,16 @@ func (cc *clientConn) Start() {
 	defer func() {
 		cc.Stop()
 	}()
-	
+
 	if err := cc.handshake(); err != nil {
-		// @todo:log
+		glog.Error("Handshake error: ", err.Error())
 		return
 	}
 
+	glog.Info("Connection ", cc.conn.RemoteAddr(), " has handshaked, starting accept package")
 	for {
-		fmt.Println("for....")
+		time.Sleep(time.Second)
+		//		fmt.Println("for....")
 		//		data, err := c.readPacket()
 		//		if err != nil {
 		//			return
@@ -150,7 +153,6 @@ func (cc *clientConn) flush() error {
 
 func (cc *clientConn) writeError(e error) error {
 	m := mysql.NewErrf(mysql.ErrUnknown, e.Error())
-	
 
 	data := make([]byte, 4, 16+len(m.Message))
 	data = append(data, mysql.ErrHeader)
@@ -216,7 +218,7 @@ func handshakeResponseParse(p *handshakeResponse41, data []byte) error {
 	// capability
 	capability := binary.LittleEndian.Uint32(data[:4])
 	p.capability = capability
-	
+
 	return nil
 }
 
@@ -237,16 +239,16 @@ func (cc *clientConn) readHandshakeResponse() error {
 }
 
 func (cc *clientConn) handshake() error {
-	fmt.Println("handshake")
 	if err := cc.writeInitialHandshake(); err != nil {
 		return err
 	}
-	fmt.Println("init handshake")
+	
 	if err := cc.readHandshakeResponse(); err != nil {
 		cc.writeError(err)
 		return err
 	}
-	fmt.Println("read response")
+	
+	
 	data := make([]byte, 4, 32)
 	data = append(data, mysql.OKHeader)
 	data = append(data, 0, 0)
@@ -256,7 +258,6 @@ func (cc *clientConn) handshake() error {
 	}
 
 	err := cc.writePacket(data)
-	fmt.Println("write ok")
 	cc.sequence = 0
 	if err != nil {
 		return err

@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/castermode/Nesoi/src/sql/server"
+	"github.com/golang/glog"
 )
 
 var (
@@ -29,6 +30,7 @@ func main() {
 
 	svr, err := server.NewServer(cfg)
 	if err != nil {
+		glog.Error("Start server error: %s", err.Error())
 		return
 	}
 
@@ -40,8 +42,10 @@ func main() {
 		syscall.SIGQUIT)
 
 	go func() {
-		<-sc
+		sg := <-sc
+		glog.Info("Received signal [", sg, "] to exit...")
 		svr.Stop()
+		glog.Flush()
 		os.Exit(0)
 	}()
 

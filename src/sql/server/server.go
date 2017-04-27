@@ -1,12 +1,13 @@
 package server
 
 import (
-	"net"
 	"bufio"
-	"fmt"
+	"math/rand"
+	"net"
 	"sync"
 	"sync/atomic"
-	"math/rand"
+
+	"github.com/golang/glog"
 )
 
 const (
@@ -19,27 +20,26 @@ var (
 )
 
 type Server struct {
-	cfg 		*Config
-	listener	net.Listener
-	rwlock		*sync.RWMutex
-	clients 	map[uint32]*clientConn
+	cfg      *Config
+	listener net.Listener
+	rwlock   *sync.RWMutex
+	clients  map[uint32]*clientConn
 }
 
-
 func NewServer(cfg *Config) (*Server, error) {
-	svr := &Server {
-		cfg:		cfg,
-		rwlock:		&sync.RWMutex{},
-		clients:	make(map[uint32]*clientConn),
+	svr := &Server{
+		cfg:     cfg,
+		rwlock:  &sync.RWMutex{},
+		clients: make(map[uint32]*clientConn),
 	}
-	
+
 	var err error
 	svr.listener, err = net.Listen("tcp", svr.cfg.Addr)
 	if err != nil {
 		return nil, err
-		
+
 	}
-	
+
 	return svr, nil
 }
 
@@ -56,39 +56,40 @@ func randomBuf(size int) []byte {
 
 func (svr *Server) newClientConn(c net.Conn) *clientConn {
 	cc := &clientConn{
-		svr:          svr,
-		conn:         c,
-		connid:       atomic.AddUint32(&globalConnID, 1),
-		salt:         randomBuf(20),
-		rb:           bufio.NewReaderSize(c, defaultReaderSize),
-		wb:           bufio.NewWriterSize(c, defaultWriterSize),
+		svr:    svr,
+		conn:   c,
+		connid: atomic.AddUint32(&globalConnID, 1),
+		salt:   randomBuf(20),
+		rb:     bufio.NewReaderSize(c, defaultReaderSize),
+		wb:     bufio.NewWriterSize(c, defaultWriterSize),
 	}
-	
+
 	return cc
 }
 
 // Start starts the TCP server, accepting new clients and creating service
-// go-routine for each. 
+// go-routine for each.
 func (svr *Server) Start() error {
 	defer func() {
 		svr.Stop()
 	}()
-	
+
+	glog.Info("Nesoi server started")
+
 	for {
-		fmt.Println("before conn!")
 		c, err := svr.listener.Accept()
 		if err != nil {
+			glog.Error("Accept error: ", err.Error())
 			return err
-		} 
-		
-		fmt.Println("one conn!")
+		}
+		glog.Info("Accept connection from ", c.RemoteAddr())
 		cc := svr.newClientConn(c)
 		svr.rwlock.Lock()
 		svr.clients[cc.connid] = cc
 		svr.rwlock.Unlock()
 		go cc.Start()
 	}
-	
+
 	return nil
 }
 
