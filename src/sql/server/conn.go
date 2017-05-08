@@ -5,9 +5,9 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
-	"time"
 
 	"github.com/castermode/Nesoi/src/sql/mysql"
+	"github.com/castermode/Nesoi/src/sql/util"
 	"github.com/golang/glog"
 	"github.com/juju/errors"
 )
@@ -40,19 +40,20 @@ func (cc *clientConn) Start() {
 		return
 	}
 
-	glog.Info("Connection ", cc.conn.RemoteAddr(), " has handshaked, starting accept package")
+	glog.Info("Connection ", cc.conn.RemoteAddr(), " has handshaked, starting accept packet")
 	for {
-		time.Sleep(time.Second)
-		//		fmt.Println("for....")
-		//		data, err := c.readPacket()
-		//		if err != nil {
-		//			return
-		//		}
+		var data []byte
+		var err error
+		if data, err = cc.readPacket(); err != nil {
+			glog.Error("Connection ", cc.connid, " Read packet error: ", err.Error())
+			return
+		}
 
-		//		// deal message
-		//		if err = c.dealMessage(data); err != nil {
-		//			return
-		//		}
+		//hand request
+		if err := cc.handleRequest(data); err != nil {
+			// @todo distinguish difference error
+		}
+		cc.sequence = 0
 	}
 }
 
@@ -171,6 +172,11 @@ func (cc *clientConn) writeError(e error) error {
 	return cc.flush()
 }
 
+func (cc *clientConn) writeOK() error {
+	//@TODO
+	return nil
+}
+
 func (cc *clientConn) writeInitialHandshake() error {
 	data := make([]byte, 4, 128)
 
@@ -190,7 +196,7 @@ func (cc *clientConn) writeInitialHandshake() error {
 	// charset, utf-8 default
 	data = append(data, uint8(mysql.DefaultCollationID))
 	//status
-	data = append(data, dumpUint16(mysql.ServerStatusAutocommit)...)
+	data = append(data, util.DumpUint16(mysql.ServerStatusAutocommit)...)
 	// below 13 byte may not be used
 	// capability flag upper 2 bytes, using default capability here
 	data = append(data, byte(defaultCapability>>16), byte(defaultCapability>>24))
@@ -207,7 +213,6 @@ func (cc *clientConn) writeInitialHandshake() error {
 		return err
 	}
 	return cc.flush()
-
 }
 
 type handshakeResponse41 struct {
@@ -234,7 +239,7 @@ func (cc *clientConn) readHandshakeResponse() error {
 	}
 	cc.capability = p.capability & defaultCapability
 
-	// @t0do: do auth
+	// @todo: do auth
 	return nil
 }
 
@@ -242,18 +247,17 @@ func (cc *clientConn) handshake() error {
 	if err := cc.writeInitialHandshake(); err != nil {
 		return err
 	}
-	
+
 	if err := cc.readHandshakeResponse(); err != nil {
 		cc.writeError(err)
 		return err
 	}
-	
-	
+
 	data := make([]byte, 4, 32)
 	data = append(data, mysql.OKHeader)
 	data = append(data, 0, 0)
 	if cc.capability&mysql.ClientProtocol41 > 0 {
-		data = append(data, dumpUint16(mysql.ServerStatusAutocommit)...)
+		data = append(data, util.DumpUint16(mysql.ServerStatusAutocommit)...)
 		data = append(data, 0, 0)
 	}
 
@@ -266,19 +270,33 @@ func (cc *clientConn) handshake() error {
 	return cc.flush()
 }
 
-//func (cc *clientConn) readOnePacket() ([]byte, error) {
-//	var header [4]byte
+func (cc *clientConn) handleRequest(data []byte) error {
+	cmd := data[0]
+	data = data[1:]
 
-//}
+	switch cmd {
+	case mysql.ComQuit:
+		return io.EOF
+	case mysql.ComQuery:
+		// For issue 1989
+		// Input payload may end with byte '\0', we didn't find related mysql document about it, but mysql
+		// implementation accept that case. So trim the last '\0' here as if the payload an EOF string.
+		// See http://dev.mysql.com/doc/internals/en/com-query.html
+		if len(data) > 0 && data[len(data)-1] == 0 {
+			data = data[:len(data)-1]
+		}
+		return cc.handleQuery(util.ToString(data))
+	case mysql.ComPing:
+		return cc.writeOK()
+	case mysql.ComInitDB:
+		//@TODO
+		return cc.writeOK()
+	default:
+		return mysql.NewErrf(mysql.ErrUnknown, "command %d not supported now", cmd)
+	}
+}
 
-//func (cc *clientConn) readPacket() ([]byte, error) {
-
-//}
-
-//func (cc *clientConn) writePacket() ([]byte, error) {
-
-//}
-
-//func (cc *clientConn) dealMessage(data []byte) error {
-
-//}
+func (cc *clientConn) handleQuery(sql string) error {
+	glog.Info("Accept sql: ", sql)
+	return nil
+}
