@@ -13,12 +13,12 @@ import (
 )
 
 var (
-	host = flag.String("host", "0.0.0.0", "nesoi server host")
-	port = flag.String("port", "3306", "nesoi server port")
+	shost = flag.String("shost", "0.0.0.0", "nesoi server host")
+	sport = flag.String("sport", "3306", "nesoi server port")
 
 	//redis flag
 	rhost = flag.String("rhost", "127.0.0.1", "redis server host")
-	rport = flag.String("port", "6379", "redis server port")
+	rport = flag.String("rport", "6379", "redis server port")
 )
 
 func init() {
@@ -29,7 +29,7 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	cfg := &server.Config{
-		Addr:      fmt.Sprintf("%s:%s", *host, *port),
+		Addr:      fmt.Sprintf("%s:%s", *shost, *sport),
 		RedisAddr: fmt.Sprintf("%s:%s", *rhost, *rport),
 	}
 
