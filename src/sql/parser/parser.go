@@ -24,7 +24,7 @@ type Parser struct {
 	yyVAL  yySymType
 }
 
-func (p *Parser) Parser(sql string) ([]Statement, error) {
+func (p *Parser) Parse(sql string) ([]Statement, error) {
 	p.src = sql
 	p.result = p.result[:0]
 

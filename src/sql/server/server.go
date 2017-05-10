@@ -7,6 +7,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/castermode/Nesoi/src/sql/executor"
+	"github.com/castermode/Nesoi/src/sql/mysql"
+	"github.com/go-redis/redis"
 	"github.com/golang/glog"
 )
 
@@ -23,6 +26,7 @@ type Server struct {
 	cfg      *Config
 	listener net.Listener
 	rwlock   *sync.RWMutex
+	driver   *redis.Client
 	clients  map[uint32]*clientConn
 }
 
@@ -39,7 +43,6 @@ func NewServer(cfg *Config) (*Server, error) {
 		return nil, err
 
 	}
-
 	return svr, nil
 }
 
@@ -54,6 +57,17 @@ func randomBuf(size int) []byte {
 	return buf
 }
 
+func (svr *Server) InitStorageDriver() error {
+	svr.driver = redis.NewClient(&redis.Options{
+		Addr:     svr.cfg.RedisAddr,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	_, err := svr.driver.Ping().Result()
+	return err
+}
+
 func (svr *Server) newClientConn(c net.Conn) *clientConn {
 	cc := &clientConn{
 		svr:    svr,
@@ -62,6 +76,7 @@ func (svr *Server) newClientConn(c net.Conn) *clientConn {
 		salt:   randomBuf(20),
 		rb:     bufio.NewReaderSize(c, defaultReaderSize),
 		wb:     bufio.NewWriterSize(c, defaultWriterSize),
+		ctx:    &Context{Executor: executor.NewExecutor(svr.driver), status: mysql.ServerStatusAutocommit},
 	}
 
 	return cc

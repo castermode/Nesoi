@@ -28,6 +28,8 @@ type clientConn struct {
 	rb       *bufio.Reader
 	wb       *bufio.Writer
 	sequence uint8
+
+	ctx *Context
 }
 
 func (cc *clientConn) Start() {
@@ -165,16 +167,28 @@ func (cc *clientConn) writeError(e error) error {
 
 	data = append(data, m.Message...)
 
-	err := cc.writePacket(data)
-	if err != nil {
+	if err := cc.writePacket(data); err != nil {
 		return err
 	}
+
 	return cc.flush()
 }
 
 func (cc *clientConn) writeOK() error {
-	//@TODO
-	return nil
+	data := make([]byte, 4, 32)
+	data = append(data, mysql.OKHeader)
+	data = append(data, util.DumpLengthEncodedInt(uint64(cc.ctx.AffectedRows()))...)
+	data = append(data, util.DumpLengthEncodedInt(uint64(cc.ctx.LastInsertID()))...)
+	if cc.capability&mysql.ClientProtocol41 > 0 {
+		data = append(data, util.DumpUint16(cc.ctx.Status())...)
+		data = append(data, util.DumpUint16(cc.ctx.WarningCount())...)
+	}
+
+	if err := cc.writePacket(data); err != nil {
+		return err
+	}
+
+	return cc.flush()
 }
 
 func (cc *clientConn) writeInitialHandshake() error {
@@ -298,5 +312,16 @@ func (cc *clientConn) handleRequest(data []byte) error {
 
 func (cc *clientConn) handleQuery(sql string) error {
 	glog.Info("Accept sql: ", sql)
-	return nil
+	results, err := cc.ctx.execute(sql)
+	if err != nil {
+		return err
+	}
+
+	if results != nil {
+		//@TODO write results to client
+	} else {
+		err = cc.writeOK()
+	}
+
+	return err
 }
