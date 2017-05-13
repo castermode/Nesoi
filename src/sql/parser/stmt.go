@@ -35,3 +35,7 @@ func (*CreateTable) StatementType() int {
 func (*ShowDatabases) StatementType() int {
 	return Rows
 }
+
+func (*ShowTables) StatementType() int {
+	return Rows
+}

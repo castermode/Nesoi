@@ -24,6 +24,12 @@ type Parser struct {
 	yyVAL  yySymType
 }
 
+func NewParser() *Parser {
+	return &Parser {
+		cache: make([]yySymType, 200),
+	}
+}
+
 func (p *Parser) Parse(sql string) ([]Statement, error) {
 	p.src = sql
 	p.result = p.result[:0]

@@ -13,7 +13,7 @@ type Executor struct {
 
 func NewExecutor(sd *redis.Client) *Executor {
 	return &Executor{
-		parser: &parser.Parser{},
+		parser: parser.NewParser(),
 		driver:	sd,
 	}
 }

@@ -121,6 +121,10 @@ ShowStmt:
 	{
 		$$ = &ShowDatabases{}
 	}
+|	SHOW TABLES
+	{
+		$$ = &ShowTables{}
+	}
 
 TableName:
 	Name
