@@ -14,13 +14,26 @@ package parser
 	colType 	ColumnType
 	colOption	ColumnOption
 	colOptions	[]ColumnOption
+	expr		Expr
+	tgelem		*TargetElem
+	tglist		TargetClause
+	where		*WhereClause
+	limit 		*LimitClause
 }
 
 %type <stmts>	StmtList
 %type <stmt>	Stmt
 %type <stmt>	CreateDatabaseStmt
 %type <stmt>	CreateTableStmt
+%type <stmt>	SelectStmt
 %type <stmt>	ShowStmt
+
+%type <expr>	Expression
+%type <tgelem>	TargetElem
+%type <tglist>	TargetClause
+%type <tname>	FromClause
+%type <where>	WhereClause
+%type <limit>	LimitClause
 
 %type <tname>		TableName
 %type <tbldef>		TableElem
@@ -68,7 +81,9 @@ package parser
 %token <str> TRAILING TRUE UNION UNIQUE UNLOCK UNSIGNED
 %token <str> UPDATE USE USING UTC_DATE UTC_TIMESTAMP VALUES VARBINARY VARCHAR
 %token <str> WHEN WHERE WRITE XOR YEAR_MONTH ZEROFILL
-	
+
+%left eq
+
 %%
 
 StmtList:
@@ -90,11 +105,97 @@ StmtList:
 Stmt:
 	CreateDatabaseStmt
 |	CreateTableStmt
+|	SelectStmt
 |	ShowStmt
 | 	/* EMPTY */
 	{
 		$$ = nil
 	}
+	
+SelectStmt:
+	SELECT TargetClause FromClause WhereClause LimitClause
+	{
+		$$ = &SelectStmt{
+			Target: $2,
+			From: $3,
+			Where: $4,
+			Limit: $5,
+		}
+	}
+	
+TargetClause:
+	TargetElem
+	{
+		if $1 != nil {
+			$$ = TargetClause{$1}
+		}
+	}
+|	TargetClause ',' TargetElem
+	{
+		if $3 != nil {
+			$$ = append($1, $3)
+		}
+	}
+	
+TargetElem:
+	Expression
+	{
+		$$ = &TargetElem{Item: $1}
+	}
+	
+
+FromClause:
+	FROM TableName
+	{
+		$$ = $2
+	}
+|	/* Empty */
+	{
+		$$ = nil
+	}
+
+WhereClause:
+	WHERE Expression
+	{
+		$$ = &WhereClause{Cond: $2}
+	}
+|	/* Empty */
+	{
+		$$ = nil
+	}
+
+LimitClause:
+	LIMIT intLit
+	{
+		$$ = &LimitClause{Num: getUint64FromItem($2)}
+	}
+|	/* Empty */
+	{
+		$$ = nil
+	}
+	
+Expression:
+	Name
+	{
+		$$ = &VariableExpr{Name: $1}
+	}
+|	intLit
+	{
+		$$ = &ValueExpr{Item: $1}
+	}
+|	stringLit
+	{
+		$$ = &ValueExpr{Item: $1}
+	}
+|	Expression eq Expression
+	{
+		$$ = &ComparisonExpr{Operator: EQ, Left: $1, Right: $3}
+	}
+|	/*Empty*/
+	{
+		$$ = nil
+	}
+
 
 CreateDatabaseStmt:
 	CREATE DATABASE Name

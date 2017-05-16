@@ -39,3 +39,7 @@ func (*ShowDatabases) StatementType() int {
 func (*ShowTables) StatementType() int {
 	return Rows
 }
+
+func (*SelectStmt) StatementType() int {
+	return Rows
+}

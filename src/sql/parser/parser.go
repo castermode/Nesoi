@@ -25,7 +25,7 @@ type Parser struct {
 }
 
 func NewParser() *Parser {
-	return &Parser {
+	return &Parser{
 		cache: make([]yySymType, 200),
 	}
 }
@@ -100,4 +100,14 @@ func toBit(l yyLexer, lval *yySymType, str string) int {
 func trimComment(txt string) string {
 	txt = specCodeStart.ReplaceAllString(txt, "")
 	return specCodeEnd.ReplaceAllString(txt, "")
+}
+
+func getUint64FromItem(num interface{}) uint64 {
+	switch v := num.(type) {
+	case int64:
+		return uint64(v)
+	case uint64:
+		return uint64(v)
+	}
+	return 0
 }
