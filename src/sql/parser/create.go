@@ -8,7 +8,7 @@ import (
 // CreateDatabase represents a CREATE DATABASE statement.
 type CreateDatabase struct {
 	IfNotExists bool
-	DBName		string
+	DBName      string
 }
 
 func (node *CreateDatabase) String() string {
@@ -31,7 +31,7 @@ func (node *TableName) String() string {
 	if node.Schema != "" {
 		fmt.Fprintf(&buf, "%s.", node.Schema)
 	}
-	fmt.Fprintf(&buf, "%s ", node.Name)
+	fmt.Fprintf(&buf, "%s", node.Name)
 	return buf.String()
 }
 
@@ -48,6 +48,7 @@ type ColumnTableDef struct {
 	Nullable   int
 	PrimaryKey bool
 	Unique     bool
+	Pos        int
 }
 
 func (node *ColumnTableDef) String() string {
@@ -69,14 +70,14 @@ func (node *ColumnTableDef) String() string {
 }
 
 func newColumnTableDef(name string, typ ColumnType, options []ColumnOption) *ColumnTableDef {
-	c := &ColumnTableDef {
-		Name:	name,
-		Type:	typ,
+	c := &ColumnTableDef{
+		Name: name,
+		Type: typ,
 	}
-	
+
 	for _, o := range options {
 		switch o.(type) {
-			case NotNullConstraint:
+		case NotNullConstraint:
 			c.Nullable = NotNull
 		case NullConstraint:
 			c.Nullable = Null
@@ -88,7 +89,7 @@ func newColumnTableDef(name string, typ ColumnType, options []ColumnOption) *Col
 			panic(fmt.Sprintf("unexpected column option: %T", c))
 		}
 	}
-	
+
 	return c
 }
 
@@ -103,7 +104,6 @@ func (node ColumnTableDefs) String() string {
 	}
 	return buf.String()
 }
-
 
 // CreateTable represents a CREATE TABLE statement.
 type CreateTable struct {

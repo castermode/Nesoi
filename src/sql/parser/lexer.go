@@ -19,7 +19,7 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
-	
+
 	"github.com/castermode/Nesoi/src/sql/mysql"
 )
 
@@ -365,6 +365,33 @@ func sqlOffsetInComment(comment string) int {
 		}
 	}
 	return offset
+}
+
+func startWithAt(s *Scanner) (tok int, pos Pos, lit string) {
+	pos = s.r.pos()
+	s.r.inc()
+	ch1 := s.r.peek()
+	if isIdentFirstChar(ch1) {
+		s.r.incAsLongAs(isIdentChar)
+		tok, lit = userVar, s.r.data(&pos)
+	} else if ch1 == '@' {
+		s.r.inc()
+		stream := s.r.s[pos.Offset+2:]
+		for _, v := range []string{"global.", "session.", "local."} {
+			if len(v) > len(stream) {
+				continue
+			}
+			if strings.EqualFold(stream[:len(v)], v) {
+				s.r.incN(len(v))
+				break
+			}
+		}
+		s.r.incAsLongAs(isIdentChar)
+		tok, lit = sysVar, s.r.data(&pos)
+	} else {
+		tok = at
+	}
+	return
 }
 
 func scanIdentifier(s *Scanner) (int, Pos, string) {

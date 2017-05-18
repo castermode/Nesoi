@@ -7,8 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/castermode/Nesoi/src/sql/context"
 	"github.com/castermode/Nesoi/src/sql/executor"
-	"github.com/castermode/Nesoi/src/sql/mysql"
 	"github.com/go-redis/redis"
 	"github.com/golang/glog"
 )
@@ -70,15 +70,16 @@ func (svr *Server) InitStorageDriver() error {
 
 func (svr *Server) newClientConn(c net.Conn) *clientConn {
 	cc := &clientConn{
-		svr:    svr,
-		conn:   c,
-		connid: atomic.AddUint32(&globalConnID, 1),
-		salt:   randomBuf(20),
-		rb:     bufio.NewReaderSize(c, defaultReaderSize),
-		wb:     bufio.NewWriterSize(c, defaultWriterSize),
-		ctx:    &Context{Executor: executor.NewExecutor(svr.driver), status: mysql.ServerStatusAutocommit},
+		svr:      svr,
+		conn:     c,
+		connid:   atomic.AddUint32(&globalConnID, 1),
+		salt:     randomBuf(20),
+		rb:       bufio.NewReaderSize(c, defaultReaderSize),
+		wb:       bufio.NewWriterSize(c, defaultWriterSize),
+		ctx:      context.NewContext(),
 	}
-
+	
+	cc.executor = executor.NewExecutor(svr.driver, cc.ctx)
 	return cc
 }
 

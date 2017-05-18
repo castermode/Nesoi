@@ -118,6 +118,7 @@ func init() {
 	initTokenString("<<", lsh)
 	initTokenString(">>", rsh)
 
+	initTokenFunc("@", startWithAt)
 	initTokenFunc("/", startWithSlash)
 	initTokenFunc("-", startWithDash)
 	initTokenFunc("#", startWithSharp)
@@ -125,7 +126,7 @@ func init() {
 	initTokenFunc("Nn", startWithNn)
 	initTokenFunc("Bb", startWithBb)
 	initTokenFunc(".", startWithDot)
-	initTokenFunc("_$@ACDEFGHIJKLMOPQRSTUVWYZacdefghijklmopqrstuvwyz", scanIdentifier)
+	initTokenFunc("_$ACDEFGHIJKLMOPQRSTUVWYZacdefghijklmopqrstuvwyz", scanIdentifier)
 	initTokenFunc("`", scanQuotedIdent)
 	initTokenFunc("0123456789", startWithNumber)
 	initTokenFunc("'\"", startString)

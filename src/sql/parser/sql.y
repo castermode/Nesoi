@@ -45,7 +45,7 @@ package parser
 %type <str>		UnReservedKeyword ReservedKeyword
 
 %token <item> intLit floatLit decLit hexLit bitLit
-%token <str> identifier invalid
+%token <str> at identifier invalid sysVar userVar 
 %token <str> hintBegin hintEnd underscoreCS stringLit
 %token <str> placeholder eq oror andand andnot assignmentEq nulleq ge le neq neqSynonym
 %token <str> lsh rsh charset
@@ -177,8 +177,12 @@ LimitClause:
 Expression:
 	Name
 	{
-		$$ = &VariableExpr{Name: $1}
+		$$ = &VariableExpr{Type: ETARGET, Name: $1}
 	}
+|	sysVar
+	{
+		$$ = &VariableExpr{Type: ESYSVAR, Name: $1}
+	}	
 |	intLit
 	{
 		$$ = &ValueExpr{Item: $1}

@@ -6,7 +6,10 @@ import (
 	"io"
 	"net"
 
+	"github.com/castermode/Nesoi/src/sql/context"
+	"github.com/castermode/Nesoi/src/sql/executor"
 	"github.com/castermode/Nesoi/src/sql/mysql"
+	"github.com/castermode/Nesoi/src/sql/result"
 	"github.com/castermode/Nesoi/src/sql/util"
 	"github.com/golang/glog"
 	"github.com/juju/errors"
@@ -29,7 +32,8 @@ type clientConn struct {
 	wb       *bufio.Writer
 	sequence uint8
 
-	ctx *Context
+	ctx      *context.Context
+	executor *executor.Executor
 }
 
 func (cc *clientConn) Start() {
@@ -312,7 +316,7 @@ func (cc *clientConn) handleRequest(data []byte) error {
 
 func (cc *clientConn) handleQuery(sql string) error {
 	glog.Info("Accept sql: ", sql)
-	results, err := cc.ctx.execute(sql)
+	results, err := cc.execute(sql)
 	if err != nil {
 		return err
 	}
@@ -324,4 +328,8 @@ func (cc *clientConn) handleQuery(sql string) error {
 	}
 
 	return err
+}
+
+func (cc *clientConn) execute(sql string) ([]result.Result, error) {
+	return cc.executor.Execute(sql)
 }

@@ -12,6 +12,13 @@ const (
 	EQ int = iota
 )
 
+const (
+	ESYSVAR int = iota
+	EUSERVAR
+	ETARGET
+	EVALUE
+)
+
 type ComparisonExpr struct {
 	Operator    int
 	Left, Right Expr
@@ -22,6 +29,7 @@ func (node *ComparisonExpr) String() string {
 }
 
 type VariableExpr struct {
+	Type int
 	Name string
 }
 
