@@ -44,6 +44,7 @@ const (
 // statement.
 type ColumnTableDef struct {
 	Name       string
+	Pos        int
 	Type       ColumnType
 	Nullable   int
 	PrimaryKey bool
