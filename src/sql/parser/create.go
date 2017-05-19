@@ -49,7 +49,6 @@ type ColumnTableDef struct {
 	Nullable   int
 	PrimaryKey bool
 	Unique     bool
-	Pos        int
 }
 
 func (node *ColumnTableDef) String() string {

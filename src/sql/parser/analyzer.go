@@ -4,11 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
-<<<<<<< HEAD
 
-=======
-	
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 	"github.com/castermode/Nesoi/src/sql/context"
 	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/castermode/Nesoi/src/sql/util"
@@ -16,7 +12,6 @@ import (
 )
 
 type Analyzer struct {
-<<<<<<< HEAD
 	driver  *redis.Client
 	context *context.Context
 }
@@ -24,15 +19,6 @@ type Analyzer struct {
 func NewAnalyzer(sd *redis.Client, ctx *context.Context) *Analyzer {
 	return &Analyzer{
 		driver:  sd,
-=======
-	driver	*redis.Client
-	context	*context.Context
-}
-
-func NewAnalyzer(sd *redis.Client, ctx *context.Context) *Analyzer {
-	return &Analyzer {
-		driver: sd,
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 		context: ctx,
 	}
 }
@@ -53,11 +39,7 @@ func (a *Analyzer) Analyze(stmts []Statement) ([]Statement, error) {
 			return nil, errors.New("unsupport statement: " + stmt.String())
 		}
 	}
-<<<<<<< HEAD
 
-=======
-	
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 	return querys, nil
 }
 
@@ -66,11 +48,7 @@ func (a *Analyzer) transformStmt(stmt Statement) (Statement, error) {
 	case *SelectStmt:
 		return a.transformSelectStmt(stmt)
 	}
-<<<<<<< HEAD
 
-=======
-	
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 	return nil, errors.New("unsupport statement: " + stmt.String())
 }
 
@@ -94,11 +72,7 @@ func (a *Analyzer) transformTarget(expr Expr, cds ColumnTableDefs, tgr *TargetRe
 		} else {
 			//sysVar
 			tgr.Type = ESYSVAR
-<<<<<<< HEAD
 			tgr.SysVar = vtarget.Name[2:]
-=======
-			tgr.SysVar = vtarget.Name[2:]		
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 		}
 		return nil
 	case *ValueExpr:
@@ -107,28 +81,18 @@ func (a *Analyzer) transformTarget(expr Expr, cds ColumnTableDefs, tgr *TargetRe
 		tgr.Value = vtarget.Item
 		return nil
 	}
-<<<<<<< HEAD
 
-=======
-	
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 	return errors.New("unsupport target type: " + expr.String())
 }
 
 func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 	sstmt := stmt.(*SelectStmt)
 
-<<<<<<< HEAD
 	var from *TableInfo
 	var cds ColumnTableDefs
 	var tblName string
 	var tableValue string
 	var err error
-=======
-	var tableValue string 
-	var tblName string
-    var err error	
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 	// transform from clause
 	if sstmt.From != nil {
 		tblName = a.context.GetTableName(sstmt.From.Schema, sstmt.From.Name)
@@ -137,7 +101,6 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 		if err != nil {
 			return nil, err
 		}
-<<<<<<< HEAD
 
 		cds = ColumnTableDefs{}
 		err = json.Unmarshal(util.ToSlice(tableValue), &cds)
@@ -155,17 +118,6 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 	}
 
 	// transform target clause
-=======
-	}
-	
-	// transform target clause
-	cds := ColumnTableDefs{}
-	err = json.Unmarshal(util.ToSlice(tableValue), &cds)
-	if err != nil {
-		return nil, err
-	}
-	
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 	var num int
 	var tgrs []*TargetRes
 	i := 1
@@ -179,11 +131,7 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 		i++
 	}
 	num = i - 1
-<<<<<<< HEAD
 
-=======
-	
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 	// transform where clause
 	var qual *ComparisonQual
 	if sstmt.Where != nil {
@@ -200,11 +148,7 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 				return nil, err
 			}
 			tgrs = append(tgrs, qual.Left)
-<<<<<<< HEAD
 
-=======
-		
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 			err = a.transformTarget(cond.Right, cds, qual.Right)
 			if err != nil {
 				return nil, err
@@ -214,17 +158,12 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 			return nil, errors.New("unsupport qual target: " + sstmt.Where.Cond.String())
 		}
 	}
-<<<<<<< HEAD
 
-=======
-	
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 	// transform limit clause
 	var limitNum uint64
 	if sstmt.Limit != nil {
 		limitNum = sstmt.Limit.Num
 	}
-<<<<<<< HEAD
 
 	return &SelectQuery{
 		From:      from,
@@ -232,14 +171,5 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 		FieldsNum: num,
 		Qual:      qual,
 		Limit:     limitNum,
-=======
-	
-	return &SelectQuery{
-		TblName: 	tblName,
-		Fields:		tgrs,
-		FieldsNum:	num,
-		Qual:		qual,
-		Limit:		limitNum,	
->>>>>>> 57ef05416feb3d1e0142fc3cef7fdcdb2063a76d
 	}, nil
 }
