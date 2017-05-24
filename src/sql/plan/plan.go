@@ -152,3 +152,25 @@ func (plan *Simple) GetParents() []Plan {
 func (plan *Simple) GetChildren() []Plan {
 	return plan.Children
 }
+
+type Show struct {
+	Operator int
+	Parents  []Plan
+	Children []Plan
+}
+
+func (plan *Show) AddParent(parent Plan) {
+	plan.Parents = append(plan.Parents, parent)
+}
+
+func (plan *Show) AddChild(child Plan) {
+	plan.Children = append(plan.Children, child)
+}
+
+func (plan *Show) GetParents() []Plan {
+	return plan.Parents
+}
+
+func (plan *Show) GetChildren() []Plan {
+	return plan.Children
+}

@@ -10,6 +10,8 @@ func Optimize(query parser.Statement) (Plan, error) {
 	switch query.(type) {
 	case *parser.SelectQuery:
 		return doSelectOptimize(query)
+	case *parser.Show:
+		return doShowOptimize(query)
 	default:
 		return nil, errors.New("unsupport statement " + query.String())
 	}
@@ -69,4 +71,9 @@ func doSelectOptimize(query parser.Statement) (Plan, error) {
 	}
 
 	return plan, nil
+}
+
+func doShowOptimize(query parser.Statement) (Plan, error) {
+	s := query.(*parser.Show)
+	return &Show{Operator: s.Operator}, nil
 }

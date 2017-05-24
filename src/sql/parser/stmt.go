@@ -44,6 +44,10 @@ func (*SelectStmt) StatementType() int {
 	return Rows
 }
 
+func (*Show) StatementType() int {
+	return Rows
+}
+
 func (*SelectQuery) StatementType() int {
 	return Rows
 }

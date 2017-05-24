@@ -53,3 +53,16 @@ func (node *SelectQuery) IsPKFilter() bool {
 
 	return false
 }
+
+const (
+	SDATABASES int = iota
+	STABLES
+)
+
+type Show struct {
+	Operator int
+}
+
+func (node *Show) String() string {
+	return "SHOW"
+}

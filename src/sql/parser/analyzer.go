@@ -47,6 +47,10 @@ func (a *Analyzer) transformStmt(stmt Statement) (Statement, error) {
 	switch stmt.(type) {
 	case *SelectStmt:
 		return a.transformSelectStmt(stmt)
+	case *ShowDatabases:
+		return &Show{Operator: SDATABASES}, nil
+	case *ShowTables:
+		return &Show{Operator: STABLES}, nil
 	}
 
 	return nil, errors.New("unsupport statement: " + stmt.String())
