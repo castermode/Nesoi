@@ -12,9 +12,11 @@ type Plan interface {
 }
 
 type Scan struct {
-	Table    string
-	Parents  []Plan
-	Children []Plan
+	From      *parser.TableInfo
+	Fields    []*parser.TargetRes
+	FieldsNum int
+	Parents   []Plan
+	Children  []Plan
 }
 
 func (plan *Scan) AddParent(parent Plan) {
@@ -34,10 +36,12 @@ func (plan *Scan) GetChildren() []Plan {
 }
 
 type ScanWithPK struct {
-	Table    string
-	PK       interface{}
-	Parents  []Plan
-	Children []Plan
+	From      *parser.TableInfo
+	Fields    []*parser.TargetRes
+	FieldsNum int
+	PK        interface{}
+	Parents   []Plan
+	Children  []Plan
 }
 
 func (plan *ScanWithPK) AddParent(parent Plan) {
@@ -84,7 +88,6 @@ func (plan *Selection) GetChildren() []Plan {
 }
 
 type Projection struct {
-	Fields    []*parser.TargetRes
 	FieldsNum int
 	Parents   []Plan
 	Children  []Plan
@@ -129,7 +132,7 @@ func (plan *Limit) GetChildren() []Plan {
 }
 
 type Simple struct {
-	Item     interface{}
+	Fields   []*parser.TargetRes
 	Parents  []Plan
 	Children []Plan
 }

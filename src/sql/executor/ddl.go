@@ -19,6 +19,10 @@ type DDLExec struct {
 	done    bool
 }
 
+func (ddl *DDLExec) Columns() ([]string, error) {
+	return nil, nil
+}
+
 func (ddl *DDLExec) Next() (*result.Record, error) {
 	if ddl.done {
 		return nil, nil

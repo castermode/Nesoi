@@ -25,43 +25,47 @@ func doSelectOptimize(query parser.Statement) (Plan, error) {
 	var plan Plan
 	s := query.(*parser.SelectQuery)
 
-	var isPKFilter bool
 	if s.From != nil {
 		// Scan with PK?
+		var fields []*parser.TargetRes
+		var fieldsnum int
+		if s.Fields != nil {
+			fields = s.Fields
+			fieldsnum = s.FieldsNum
+		}
+
 		if s.IsPKFilter() {
-			isPKFilter = true
 			plan = &ScanWithPK{
-				Table: s.From.Name,
-				PK:    s.Qual.Right,
+				From:      s.From,
+				PK:        s.Qual,
+				Fields:    fields,
+				FieldsNum: fieldsnum,
 			}
 		} else {
 			plan = &Scan{
-				Table: s.From.Name,
+				From:      s.From,
+				Fields:    fields,
+				FieldsNum: fieldsnum,
+			}
+
+			if s.Qual != nil {
+				qual := &Qual{Pos: s.Qual.Left.TargetID, Value: s.Qual.Right.Value}
+				splan := &Selection{Filter: qual}
+				plan = appendPlan(splan, plan)
 			}
 		}
+
+		if fieldsnum != len(fields) {
+			pplan := &Projection{FieldsNum: fieldsnum}
+			plan = appendPlan(pplan, plan)
+		}
+
+		if s.Limit != 0 {
+			lplan := &Limit{Num: s.Limit}
+			plan = appendPlan(lplan, plan)
+		}
 	} else {
-		return &Simple{Item: s.Fields}, nil
-	}
-
-	if s.Qual != nil {
-		if !isPKFilter {
-			qual := &Qual{Pos: s.Qual.Left.FieldID, Value: s.Qual.Right.Value}
-			splan := &Selection{Filter: qual}
-			plan = appendPlan(splan, plan)
-		}
-	}
-
-	if s.Fields != nil {
-		pplan := &Projection{
-			Fields:    s.Fields,
-			FieldsNum: s.FieldsNum,
-		}
-		plan = appendPlan(pplan, plan)
-	}
-
-	if s.Limit != 0 {
-		lplan := &Limit{Num: s.Limit}
-		plan = appendPlan(lplan, plan)
+		plan = &Simple{Fields: s.Fields}
 	}
 
 	return plan, nil

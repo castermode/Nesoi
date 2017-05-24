@@ -5,9 +5,10 @@ import (
 )
 
 type Record struct {
-	datum []util.Datum
+	Datums []*util.Datum
 }
 
 type Result interface {
-	Next() (*Record, error) 
+	Columns() ([]string, error)
+	Next() (*Record, error)
 }

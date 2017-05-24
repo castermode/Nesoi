@@ -195,6 +195,19 @@ func (cc *clientConn) writeOK() error {
 	return cc.flush()
 }
 
+func (cc *clientConn) writeEOF() error {
+	data := make([]byte, 4, 9)
+
+	data = append(data, mysql.EOFHeader)
+	if cc.capability&mysql.ClientProtocol41 > 0 {
+		data = append(data, util.DumpUint16(cc.ctx.WarningCount())...)
+		data = append(data, util.DumpUint16(cc.ctx.Status())...)
+	}
+
+	err := cc.writePacket(data)
+	return err
+}
+
 func (cc *clientConn) writeInitialHandshake() error {
 	data := make([]byte, 4, 128)
 
@@ -288,6 +301,79 @@ func (cc *clientConn) handshake() error {
 	return cc.flush()
 }
 
+func (cc *clientConn) writeResult(r result.Result) error {
+	cs, err := r.Columns()
+	if err != nil {
+		return err
+	}
+
+	fieldLen := util.DumpLengthEncodedInt(uint64(len(cs)))
+	data := make([]byte, 4, 1024)
+	data = append(data, fieldLen...)
+	if err = cc.writePacket(data); err != nil {
+		return err
+	}
+
+	for _, c := range cs {
+		data = data[0:4]
+		data = append(data, util.ToSlice(c)...)
+		if err = cc.writePacket(data); err != nil {
+			return err
+		}
+	}
+
+	if err = cc.writeEOF(); err != nil {
+		return nil
+	}
+
+	var rc *result.Record
+	for {
+		rc, err = r.Next()
+		if err != nil {
+			return err
+		}
+		if rc == nil {
+			break
+		}
+
+		data = data[0:4]
+		for _, v := range rc.Datums {
+			if v.IsNull() {
+				data = append(data, 0xfb)
+				continue
+			}
+
+			var vt []byte
+			vt, err = util.DumpValueToText(v)
+			if err != nil {
+				return err
+			}
+			data = append(data, util.DumpLengthEncodedString(vt)...)
+		}
+
+		if err = cc.writePacket(data); err != nil {
+			return err
+		}
+
+	}
+
+	if err = cc.writeEOF(); err != nil {
+		return err
+	}
+
+	return cc.flush()
+}
+
+func (cc *clientConn) writeMultiResult(rs []result.Result) error {
+	for _, r := range rs {
+		if err := cc.writeResult(r); err != nil {
+			return err
+		}
+	}
+
+	return cc.writeOK()
+}
+
 func (cc *clientConn) handleRequest(data []byte) error {
 	cmd := data[0]
 	data = data[1:]
@@ -322,7 +408,7 @@ func (cc *clientConn) handleQuery(sql string) error {
 	}
 
 	if results != nil {
-		//@TODO write results to client
+		err = cc.writeMultiResult(results)
 	} else {
 		err = cc.writeOK()
 	}

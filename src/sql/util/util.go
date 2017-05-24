@@ -62,3 +62,10 @@ func DumpLengthEncodedInt(n uint64) []byte {
 
 	return nil
 }
+
+func DumpLengthEncodedString(b []byte) []byte {
+	data := make([]byte, len(b)+9)
+	data = append(data, DumpLengthEncodedInt(uint64(len(b)))...)
+	data = append(data, b...)
+	return data
+}
