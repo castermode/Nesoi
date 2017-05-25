@@ -130,6 +130,7 @@ func (s *Scanner) Errorf(format string, a ...interface{}) {
 // return invalid tells parser that scanner meets illegal character.
 func (s *Scanner) Lex(v *yySymType) int {
 	tok, _, lit := s.scan()
+	v.str = lit
 
 	if tok == identifier {
 		if tok1 := isTokenIdentifier(lit, &s.buf); tok1 != 0 {
