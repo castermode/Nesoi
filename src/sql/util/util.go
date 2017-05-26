@@ -44,6 +44,28 @@ func DumpUint16(n uint16) []byte {
 	}
 }
 
+func DumpUint32(n uint32) []byte {
+	return []byte{
+		byte(n),
+		byte(n >> 8),
+		byte(n >> 16),
+		byte(n >> 24),
+	}
+}
+
+func DumpUint64(n uint64) []byte {
+	return []byte{
+		byte(n),
+		byte(n >> 8),
+		byte(n >> 16),
+		byte(n >> 24),
+		byte(n >> 32),
+		byte(n >> 40),
+		byte(n >> 48),
+		byte(n >> 56),
+	}
+}
+
 func DumpLengthEncodedInt(n uint64) []byte {
 	switch {
 	case n <= 250:

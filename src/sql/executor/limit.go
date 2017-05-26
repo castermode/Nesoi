@@ -3,6 +3,7 @@ package executor
 import (
 	"github.com/castermode/Nesoi/src/sql/plan"
 	"github.com/castermode/Nesoi/src/sql/result"
+	"github.com/castermode/Nesoi/src/sql/store"
 )
 
 type LimitExec struct {
@@ -23,7 +24,7 @@ func NewLimitExec(l *plan.Limit, e *Executor) *LimitExec {
 	return lmtExec
 }
 
-func (l *LimitExec) Columns() ([]string, error) {
+func (l *LimitExec) Columns() ([]*store.ColumnInfo, error) {
 	return l.children[0].Columns()
 }
 

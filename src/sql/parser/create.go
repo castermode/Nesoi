@@ -36,8 +36,8 @@ func (node *TableName) String() string {
 }
 
 const (
-	NotNull int = iota
-	Null
+	Null int = iota
+	NotNull
 )
 
 // ColumnTableDef represents a column definition within a CREATE TABLE

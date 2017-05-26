@@ -316,7 +316,7 @@ func (cc *clientConn) writeResult(r result.Result) error {
 
 	for _, c := range cs {
 		data = data[0:4]
-		data = append(data, util.ToSlice(c)...)
+		data = append(data, c.Dump()...)
 		if err = cc.writePacket(data); err != nil {
 			return err
 		}

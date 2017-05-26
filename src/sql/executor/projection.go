@@ -3,6 +3,7 @@ package executor
 import (
 	"github.com/castermode/Nesoi/src/sql/plan"
 	"github.com/castermode/Nesoi/src/sql/result"
+	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/castermode/Nesoi/src/sql/util"
 )
 
@@ -23,12 +24,13 @@ func NewProjectionExec(p *plan.Projection, e *Executor) *ProjectionExec {
 	return pExec
 }
 
-func (p *ProjectionExec) Columns() ([]string, error) {
+func (p *ProjectionExec) Columns() ([]*store.ColumnInfo, error) {
 	clms, err := p.children[0].Columns()
 	if err != nil {
 		return nil, err
 	}
-	var ret []string
+
+	ret := []*store.ColumnInfo{}
 	var i int
 	for i < p.fieldsNum {
 		ret = append(ret, clms[i])

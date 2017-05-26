@@ -3,6 +3,7 @@ package executor
 import (
 	"github.com/castermode/Nesoi/src/sql/plan"
 	"github.com/castermode/Nesoi/src/sql/result"
+	"github.com/castermode/Nesoi/src/sql/store"
 )
 
 type SelectionExec struct {
@@ -23,7 +24,7 @@ func NewSelectionExec(s *plan.Selection, e *Executor) *SelectionExec {
 	return selExec
 }
 
-func (s *SelectionExec) Columns() ([]string, error) {
+func (s *SelectionExec) Columns() ([]*store.ColumnInfo, error) {
 	return s.children[0].Columns()
 }
 

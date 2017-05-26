@@ -19,7 +19,7 @@ type DDLExec struct {
 	done    bool
 }
 
-func (ddl *DDLExec) Columns() ([]string, error) {
+func (ddl *DDLExec) Columns() ([]*store.ColumnInfo, error) {
 	return nil, nil
 }
 

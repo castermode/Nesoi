@@ -3,8 +3,10 @@ package executor
 import (
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/castermode/Nesoi/src/sql/context"
+	"github.com/castermode/Nesoi/src/sql/mysql"
 	"github.com/castermode/Nesoi/src/sql/parser"
 	"github.com/castermode/Nesoi/src/sql/plan"
 	"github.com/castermode/Nesoi/src/sql/result"
@@ -23,16 +25,57 @@ type ScanExec struct {
 	done    bool
 }
 
-func (s *ScanExec) Columns() ([]string, error) {
-	ret := []string{}
+func (s *ScanExec) Columns() ([]*store.ColumnInfo, error) {
+	ret := []*store.ColumnInfo{}
 	for _, f := range s.scan.Fields {
+		ci := &store.ColumnInfo{}
 		switch f.Type {
 		case parser.ETARGET:
-			ret = append(ret, s.scan.From.ColumnMap[f.FieldID].Name)
+			st := strings.Split(s.scan.From.Name, ".")
+			ci.Schema = st[0]
+			ci.Table = st[1]
+			ci.OrgTable = st[1]
+			ci.Name = s.scan.From.ColumnMap[f.FieldID].Name
+			ci.OrgName = s.scan.From.ColumnMap[f.FieldID].Name
+			switch s.scan.From.ColumnMap[f.FieldID].Type.(type) {
+			case *parser.IntType:
+				ci.Type = mysql.TypeLong
+				ci.ColumnLength = 4
+			case *parser.StringType:
+				ci.Type = mysql.TypeString
+			}
+			if s.scan.From.ColumnMap[f.FieldID].Nullable == parser.NotNull {
+				ci.Flag |= mysql.NotNullFlag
+			}
+			if s.scan.From.ColumnMap[f.FieldID].PrimaryKey {
+				ci.Flag |= mysql.PriKeyFlag
+			}
+			if s.scan.From.ColumnMap[f.FieldID].Unique {
+				ci.Flag |= mysql.UniqueKeyFlag
+			}
+			ret = append(ret, ci)
 		case parser.ESYSVAR:
-			ret = append(ret, f.SysVar)
+			ci.Schema = s.context.GetCurrentDB()
+			ci.Table = "dual"
+			ci.OrgTable = "dual"
+			ci.Name = f.SysVar
+			ci.OrgName = f.SysVar
+			ci.Type = uint8(mysql.TypeString)
+			ret = append(ret, ci)
 		case parser.EVALUE:
-			ret = append(ret, "EXPRESSION")
+			ci.Schema = s.context.GetCurrentDB()
+			ci.Table = "dual"
+			ci.OrgTable = "dual"
+			ci.Name = "EXPRESSION"
+			ci.OrgName = "EXPRESSION"
+			switch f.Value.(type) {
+			case int64:
+				ci.Type = uint8(mysql.TypeLong)
+				ci.ColumnLength = 4
+			case string:
+				ci.Type = mysql.TypeString
+			}
+			ret = append(ret, ci)
 		default:
 			return nil, errors.New("caluse error!")
 		}
@@ -139,16 +182,57 @@ type ScanWithPKExec struct {
 	done    bool
 }
 
-func (s *ScanWithPKExec) Columns() ([]string, error) {
-	ret := []string{}
+func (s *ScanWithPKExec) Columns() ([]*store.ColumnInfo, error) {
+	ret := []*store.ColumnInfo{}
 	for _, f := range s.scanpk.Fields {
+		ci := &store.ColumnInfo{}
 		switch f.Type {
 		case parser.ETARGET:
-			ret = append(ret, s.scanpk.From.ColumnMap[f.FieldID].Name)
+			st := strings.Split(s.scanpk.From.Name, ".")
+			ci.Schema = st[0]
+			ci.Table = st[1]
+			ci.OrgTable = st[1]
+			ci.Name = s.scanpk.From.ColumnMap[f.FieldID].Name
+			ci.OrgName = s.scanpk.From.ColumnMap[f.FieldID].Name
+			switch s.scanpk.From.ColumnMap[f.FieldID].Type.(type) {
+			case *parser.IntType:
+				ci.Type = mysql.TypeLong
+				ci.ColumnLength = 4
+			case *parser.StringType:
+				ci.Type = mysql.TypeString
+			}
+			if s.scanpk.From.ColumnMap[f.FieldID].Nullable == parser.NotNull {
+				ci.Flag |= mysql.NotNullFlag
+			}
+			if s.scanpk.From.ColumnMap[f.FieldID].PrimaryKey {
+				ci.Flag |= mysql.PriKeyFlag
+			}
+			if s.scanpk.From.ColumnMap[f.FieldID].Unique {
+				ci.Flag |= mysql.UniqueKeyFlag
+			}
+			ret = append(ret, ci)
 		case parser.ESYSVAR:
-			ret = append(ret, f.SysVar)
+			ci.Schema = s.context.GetCurrentDB()
+			ci.Table = "dual"
+			ci.OrgTable = "dual"
+			ci.Name = f.SysVar
+			ci.OrgName = f.SysVar
+			ci.Type = uint8(mysql.TypeString)
+			ret = append(ret, ci)
 		case parser.EVALUE:
-			ret = append(ret, "EXPRESSION")
+			ci.Schema = s.context.GetCurrentDB()
+			ci.Table = "dual"
+			ci.OrgTable = "dual"
+			ci.Name = "EXPRESSION"
+			ci.OrgName = "EXPRESSION"
+			switch f.Value.(type) {
+			case int64:
+				ci.Type = uint8(mysql.TypeLong)
+				ci.ColumnLength = 4
+			case string:
+				ci.Type = mysql.TypeString
+			}
+			ret = append(ret, ci)
 		default:
 			return nil, errors.New("caluse error!")
 		}

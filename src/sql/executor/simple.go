@@ -4,24 +4,45 @@ import (
 	"errors"
 
 	"github.com/castermode/Nesoi/src/sql/context"
+	"github.com/castermode/Nesoi/src/sql/mysql"
 	"github.com/castermode/Nesoi/src/sql/parser"
 	"github.com/castermode/Nesoi/src/sql/result"
+	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/castermode/Nesoi/src/sql/util"
 )
 
 type SimpleExec struct {
-	fields []*parser.TargetRes
-	done   bool
+	fields  []*parser.TargetRes
+	done    bool
+	context *context.Context
 }
 
-func (s *SimpleExec) Columns() ([]string, error) {
-	ret := []string{}
+func (s *SimpleExec) Columns() ([]*store.ColumnInfo, error) {
+	ret := []*store.ColumnInfo{}
+
 	for _, f := range s.fields {
+		ci := &store.ColumnInfo{
+			Schema:   s.context.GetCurrentDB(),
+			Table:    "dual",
+			OrgTable: "dual",
+		}
 		switch f.Type {
 		case parser.ESYSVAR:
-			ret = append(ret, f.SysVar)
+			ci.Name = f.SysVar
+			ci.OrgName = f.SysVar
+			ci.Type = uint8(mysql.TypeString)
+			ret = append(ret, ci)
 		case parser.EVALUE:
-			ret = append(ret, "EXPRESSION")
+			ci.Name = "EXPRESSION"
+			ci.OrgName = "EXPRESSION"
+			switch f.Value.(type) {
+			case int64:
+				ci.Type = uint8(mysql.TypeLong)
+				ci.ColumnLength = 4
+			case string:
+				ci.Type = mysql.TypeString
+			}
+			ret = append(ret, ci)
 		default:
 			return nil, errors.New("caluse error!")
 		}

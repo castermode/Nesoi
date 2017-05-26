@@ -1,6 +1,7 @@
 package result
 
 import (
+	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/castermode/Nesoi/src/sql/util"
 )
 
@@ -9,6 +10,6 @@ type Record struct {
 }
 
 type Result interface {
-	Columns() ([]string, error)
+	Columns() ([]*store.ColumnInfo, error)
 	Next() (*Record, error)
 }
