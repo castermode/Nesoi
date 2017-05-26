@@ -371,6 +371,7 @@ var tokenMap = map[string]int{
 	"SHOW":               SHOW,
 	"SMALLINT":           SMALLINT,
 	"STARTING":           STARTING,
+	"STRING":             STRING,
 	"TABLE":              TABLE,
 	"TERMINATED":         TERMINATED,
 	"THEN":               THEN,

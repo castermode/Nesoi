@@ -98,9 +98,9 @@ func (executor *Executor) executeQuery(query parser.Statement) (result.Result, e
 
 func makePlanExec(p plan.Plan, e *Executor) result.Result {
 	switch p.(type) {
-	case *plan.Show:
+	/*case *plan.Show:
 		s := p.(*plan.Show)
-		return &ShowExec{Operator: s.Operator, context: e.context}
+		return &ShowExec{Operator: s.Operator, context: e.context}*/
 	case *plan.Simple:
 		s := p.(*plan.Simple)
 		return &SimpleExec{fields: s.Fields, context: e.context}

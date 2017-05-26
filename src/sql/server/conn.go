@@ -57,7 +57,7 @@ func (cc *clientConn) Start() {
 
 		//hand request
 		if err := cc.handleRequest(data); err != nil {
-			// @todo distinguish difference error
+			cc.writeError(err)
 		}
 		cc.sequence = 0
 	}
@@ -408,7 +408,11 @@ func (cc *clientConn) handleQuery(sql string) error {
 	}
 
 	if results != nil {
-		err = cc.writeMultiResult(results)
+		if len(results) == 1{
+			err = cc.writeResult(results[0])
+		} else {
+			err = cc.writeMultiResult(results)
+		}
 	} else {
 		err = cc.writeOK()
 	}

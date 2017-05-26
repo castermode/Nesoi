@@ -66,7 +66,7 @@ func (s *SimpleExec) Next() (*result.Record, error) {
 			}
 			d := &util.Datum{}
 			d.SetK(util.KindString)
-			d.SetB(util.ToSlice(sv.Name))
+			d.SetB(util.ToSlice(sv.Value))
 			r.Datums = append(r.Datums, d)
 		case parser.EVALUE:
 			d, err := valueToDatum(f.Value)
