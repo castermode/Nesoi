@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"errors"
 	"math/rand"
 	"net"
 	"sync"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/castermode/Nesoi/src/sql/context"
 	"github.com/castermode/Nesoi/src/sql/executor"
+	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/go-redis/redis"
 	"github.com/golang/glog"
 )
@@ -64,21 +66,35 @@ func (svr *Server) InitStorageDriver() error {
 		DB:       0,  // use default DB
 	})
 
-	_, err := svr.driver.Ping().Result()
-	return err
+	if _, err := svr.driver.Ping().Result(); err != nil {
+		return err
+	}
+
+	// init nesoi db
+	NesoiDB := store.SystemFlag + store.DBFlag + store.NesoiFlag
+	_, err := svr.driver.Get(NesoiDB).Result()
+	if err == nil {
+		return nil
+	}
+
+	if err != redis.Nil {
+		return errors.New("Get kv storage error!")
+	}
+
+	return svr.driver.Set(NesoiDB, "", 0).Err()
 }
 
 func (svr *Server) newClientConn(c net.Conn) *clientConn {
 	cc := &clientConn{
-		svr:      svr,
-		conn:     c,
-		connid:   atomic.AddUint32(&globalConnID, 1),
-		salt:     randomBuf(20),
-		rb:       bufio.NewReaderSize(c, defaultReaderSize),
-		wb:       bufio.NewWriterSize(c, defaultWriterSize),
-		ctx:      context.NewContext(),
+		svr:    svr,
+		conn:   c,
+		connid: atomic.AddUint32(&globalConnID, 1),
+		salt:   randomBuf(20),
+		rb:     bufio.NewReaderSize(c, defaultReaderSize),
+		wb:     bufio.NewWriterSize(c, defaultWriterSize),
+		ctx:    context.NewContext(),
 	}
-	
+
 	cc.executor = executor.NewExecutor(svr.driver, cc.ctx)
 	return cc
 }

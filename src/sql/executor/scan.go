@@ -127,7 +127,7 @@ func (s *ScanExec) Next() (*result.Record, error) {
 		return nil, nil
 	}
 
-	var datums []*util.Datum
+	var datums []*util.Datum = make([]*util.Datum, 0)
 	for _, f := range s.scan.Fields {
 		d := &util.Datum{}
 		switch f.Type {
@@ -260,7 +260,7 @@ func (s *ScanWithPKExec) Next() (*result.Record, error) {
 	default:
 		return nil, errors.New("unsupport where clause now!")
 	}
-	var datums []*util.Datum
+	var datums []*util.Datum = make([]*util.Datum, 0)
 	for _, f := range s.scanpk.Fields {
 		d := &util.Datum{}
 		switch f.Type {

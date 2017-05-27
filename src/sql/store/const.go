@@ -5,4 +5,5 @@ const (
 	DBFlag     = "DATABASE/"
 	TableFlag  = "TABLE/"
 	UserFlag   = "USER/"
+	NesoiFlag  = "NESOI"
 )
