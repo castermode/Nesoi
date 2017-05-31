@@ -122,6 +122,47 @@ func (node *CreateTable) String() string {
 	return buf.String()
 }
 
+type DropDatabase struct {
+	IfExists bool
+	DBName   string
+}
+
+func (node *DropDatabase) String() string {
+	var buf bytes.Buffer
+	buf.WriteString("DROP DATABASE")
+	if node.IfExists {
+		fmt.Fprintf(&buf, " IF EXISTS")
+	}
+	fmt.Fprintf(&buf, " %s", node.DBName)
+	return buf.String()
+}
+
+type DropTable struct {
+	IfExists bool
+	TName    *TableName
+}
+
+func (node *DropTable) String() string {
+	var buf bytes.Buffer
+	buf.WriteString("DROP TABLE")
+	if node.IfExists {
+		fmt.Fprintf(&buf, " IF EXISTS")
+	}
+	fmt.Fprintf(&buf, " %s", node.TName)
+	return buf.String()
+}
+
+type UseDB struct {
+	DBName string
+}
+
+func (node *UseDB) String() string {
+	var buf bytes.Buffer
+	buf.WriteString("USE")
+	fmt.Fprintf(&buf, " %s", node.DBName)
+	return buf.String()
+}
+
 type ColumnOption interface {
 	columnOption()
 }

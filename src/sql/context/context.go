@@ -39,6 +39,10 @@ func (ctx *Context) GetCurrentDB() string {
 	return ctx.currentDB
 }
 
+func (ctx *Context) SetCurrentDB(db string) {
+	ctx.currentDB = db
+}
+
 func (ctx *Context) GetTableName(schema string, tname string) string {
 	shm := schema
 	if shm == "" {

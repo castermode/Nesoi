@@ -34,6 +34,12 @@ func (ddl *DDLExec) Next() (*result.Record, error) {
 		err = ddl.executeCreateDatabase()
 	case *parser.CreateTable:
 		err = ddl.executeCreateTable()
+	case *parser.DropDatabase:
+		err = ddl.executeDropDatabase()
+	case *parser.DropTable:
+		err = ddl.executeDropTable()
+	case *parser.UseDB:
+		err = ddl.executeUseDB()
 	}
 	if err != nil {
 		return nil, err
@@ -52,11 +58,11 @@ func (ddl *DDLExec) executeCreateDatabase() error {
 		if stmt.IfNotExists {
 			return nil
 		}
-		return errors.New("Database alreary exists!")
+		return errors.New("database alreary exists!")
 	}
 
 	if err != redis.Nil {
-		return errors.New("Get kv storage error!")
+		return errors.New("get kv storage error!")
 	}
 
 	return ddl.driver.Set(dbName, "", 0).Err()
@@ -75,7 +81,7 @@ func (ddl *DDLExec) executeCreateTable() error {
 	}
 
 	if err != redis.Nil {
-		return errors.New("Get kv storage error!")
+		return errors.New("get kv storage error!")
 	}
 
 	i := 1
@@ -91,4 +97,60 @@ func (ddl *DDLExec) executeCreateTable() error {
 	}
 
 	return ddl.driver.Set(tableKey, util.ToString(data), 0).Err()
+}
+
+func (ddl *DDLExec) executeDropDatabase() error {
+	stmt := ddl.stmt.(*parser.DropDatabase)
+
+	dbName := store.SystemFlag + store.DBFlag + stmt.DBName
+	_, err := ddl.driver.Get(dbName).Result()
+	if err == nil {
+		_, err = ddl.driver.Del(dbName).Result()
+		return err
+	}
+
+	if err != redis.Nil {
+		return errors.New("get kv storage error!")
+	}
+
+	if stmt.IfExists {
+		return nil
+	}
+	return errors.New("database not exists!")
+}
+
+func (ddl *DDLExec) executeDropTable() error {
+	stmt := ddl.stmt.(*parser.DropTable)
+
+	TblName := store.SystemFlag + store.TableFlag + ddl.context.GetTableName(stmt.TName.Schema, stmt.TName.Name)
+	_, err := ddl.driver.Get(TblName).Result()
+	if err == nil {
+		_, err = ddl.driver.Del(TblName).Result()
+		return err
+	}
+
+	if err != redis.Nil {
+		return errors.New("get kv storage error!")
+	}
+
+	if stmt.IfExists {
+		return nil
+	}
+	return errors.New("table not exists!")
+}
+
+func (ddl *DDLExec) executeUseDB() error {
+	stmt := ddl.stmt.(*parser.UseDB)
+
+	dbName := store.SystemFlag + store.DBFlag + stmt.DBName
+	_, err := ddl.driver.Get(dbName).Result()
+	if err == nil {
+		ddl.context.SetCurrentDB(stmt.DBName)
+	}
+
+	if err != redis.Nil {
+		return errors.New("get kv storage error!")
+	}
+
+	return errors.New("database not exists!")
 }

@@ -32,6 +32,18 @@ func (*CreateTable) StatementType() int {
 	return DDL
 }
 
+func (*DropDatabase) StatementType() int {
+	return DDL
+}
+
+func (*DropTable) StatementType() int {
+	return DDL
+}
+
+func (*UseDB) StatementType() int {
+	return DDL
+}
+
 func (*ShowDatabases) StatementType() int {
 	return Rows
 }

@@ -25,8 +25,11 @@ package parser
 %type <stmt>	Stmt
 %type <stmt>	CreateDatabaseStmt
 %type <stmt>	CreateTableStmt
+%type <stmt>	DropDatabaseStmt
+%type <stmt>	DropTableStmt
 %type <stmt>	SelectStmt
 %type <stmt>	ShowStmt
+%type <stmt>	UseDBStmt
 
 %type <expr>	Expression
 %type <tgelem>	TargetElem
@@ -106,7 +109,10 @@ Stmt:
 	CreateDatabaseStmt
 |	CreateTableStmt
 |	SelectStmt
+|	DropDatabaseStmt
+|	DropTableStmt
 |	ShowStmt
+|	UseDBStmt
 | 	/* EMPTY */
 	{
 		$$ = nil
@@ -221,16 +227,6 @@ CreateTableStmt:
 		$$ = &CreateTable{Table: $6, IfNotExists: true, Defs: $8}
   	}
 
-ShowStmt:
-	SHOW DATABASES
-	{
-		$$ = &ShowDatabases{}
-	}
-|	SHOW TABLES
-	{
-		$$ = &ShowTables{}
-	}
-
 TableName:
 	Name
 	{
@@ -285,6 +281,42 @@ ColumnOptionItem:
 		$$ = PrimaryKeyConstraint{}
 	}
 
+DropDatabaseStmt:
+	DROP DATABASE Name
+	{
+		$$ = &DropDatabase{DBName: $3, IfExists: false}
+	}
+|	DROP DATABASE IF EXISTS Name
+	{
+		$$ = &DropDatabase{DBName: $5, IfExists: true}
+	}
+
+DropTableStmt:
+	DROP TABLE TableName
+	{
+		$$ = &DropTable{TName: $3, IfExists: false}
+	}
+|	DROP TABLE IF EXISTS TableName
+	{
+		$$ = &DropTable{TName: $5, IfExists: true}
+	}
+
+ShowStmt:
+	SHOW DATABASES
+	{
+		$$ = &ShowDatabases{}
+	}
+|	SHOW TABLES
+	{
+		$$ = &ShowTables{}
+	}
+
+UseDBStmt:
+	USE Name
+	{
+		$$ = &UseDB{DBName: $2}
+	}
+
 /******************************************Type Begin**********************************************/
 
 TypeName:
@@ -313,7 +345,6 @@ StringType:
 		$$ = &StringType{Name: "STRING"}
 	}
 /******************************************Type End************************************************/
-
 Name:
 	identifier
 	{
