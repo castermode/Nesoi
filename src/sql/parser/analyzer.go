@@ -29,7 +29,7 @@ func (a *Analyzer) Analyze(stmts []Statement) ([]Statement, error) {
 		switch stmt.StatementType() {
 		case DDL:
 			querys = append(querys, stmt)
-		case Rows:
+		case Rows, RowsAffected:
 			query, err := a.transformStmt(stmt)
 			if err != nil {
 				return nil, err
@@ -108,10 +108,27 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 			return nil, err
 		}
 
-		cds = ColumnTableDefs{}
-		err = json.Unmarshal(util.ToSlice(tableValue), &cds)
+		cjds := ColumnTableJsonDefs{}
+		cds := ColumnTableDefs{}
+		err = json.Unmarshal(util.ToSlice(tableValue), &cjds)
 		if err != nil {
 			return nil, err
+		}
+		for _, cjd := range cjds {
+			cd := &ColumnTableDef{
+				Name:       cjd.Name,
+				Pos:        cjd.Pos,
+				Nullable:   cjd.Nullable,
+				PrimaryKey: cjd.PrimaryKey,
+				Unique:     cjd.Unique,
+			}
+			switch cjd.Type {
+			case SqlInt:
+				cd.Type = &IntType{Name: "INT"}
+			case SqlString:
+				cd.Type = &StringType{Name: "STRING"}
+			}
+			cds = append(cds, cd)
 		}
 
 		var cm map[int]*ColumnTableDef
@@ -190,10 +207,27 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 		return nil, err
 	}
 
+	cjds := ColumnTableJsonDefs{}
 	cds := ColumnTableDefs{}
-	err = json.Unmarshal(util.ToSlice(tableValue), &cds)
+	err = json.Unmarshal(util.ToSlice(tableValue), &cjds)
 	if err != nil {
 		return nil, err
+	}
+	for _, cjd := range cjds {
+		cd := &ColumnTableDef{
+			Name:       cjd.Name,
+			Pos:        cjd.Pos,
+			Nullable:   cjd.Nullable,
+			PrimaryKey: cjd.PrimaryKey,
+			Unique:     cjd.Unique,
+		}
+		switch cjd.Type {
+		case SqlInt:
+			cd.Type = &IntType{Name: "INT"}
+		case SqlString:
+			cd.Type = &StringType{Name: "STRING"}
+		}
+		cds = append(cds, cd)
 	}
 
 	pks := []int{}

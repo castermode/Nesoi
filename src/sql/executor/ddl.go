@@ -84,14 +84,29 @@ func (ddl *DDLExec) executeCreateTable() error {
 		return errors.New("get kv storage error!")
 	}
 
+	cjds := parser.ColumnTableJsonDefs{}
 	i := 1
 	for _, cd := range stmt.Defs {
 		cd.Pos = i
+		cjd := &parser.ColumnTableJsonDef{
+			Name:       cd.Name,
+			Pos:        cd.Pos,
+			Nullable:   cd.Nullable,
+			PrimaryKey: cd.PrimaryKey,
+			Unique:     cd.Unique,
+		}
+		switch cd.Type.(type) {
+		case *parser.IntType:
+			cjd.Type = parser.SqlInt
+		case *parser.StringType:
+			cjd.Type = parser.SqlString
+		}
+		cjds = append(cjds, cjd)
 		i++
 	}
 
 	var data []byte
-	data, err = json.Marshal(stmt.Defs)
+	data, err = json.Marshal(cjds)
 	if err != nil {
 		return err
 	}
