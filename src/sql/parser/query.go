@@ -66,3 +66,13 @@ type Show struct {
 func (node *Show) String() string {
 	return "SHOW"
 }
+
+type InsertQuery struct {
+	NumColumns	int
+	PK  		string
+	Values      map[int]interface{}
+}
+
+func (node *InsertQuery) String() string {
+	return "INSERT QUERY"
+}

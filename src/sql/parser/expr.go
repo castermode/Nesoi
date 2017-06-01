@@ -8,6 +8,8 @@ type Expr interface {
 	fmt.Stringer
 }
 
+type Exprs []Expr
+
 const (
 	EQ int = iota
 )

@@ -4,7 +4,7 @@ package parser
 
 %union {
 	item 		interface{}
-	str		string
+	str			string
 	strs		[]string
 	stmt		Statement
 	stmts		[]Statement
@@ -15,6 +15,7 @@ package parser
 	colOption	ColumnOption
 	colOptions	[]ColumnOption
 	expr		Expr
+	exprs		Exprs
 	tgelem		*TargetElem
 	tglist		TargetClause
 	where		*WhereClause
@@ -28,10 +29,14 @@ package parser
 %type <stmt>	DropDatabaseStmt
 %type <stmt>	DropTableStmt
 %type <stmt>	SelectStmt
+%type <stmt>	InsertStmt
 %type <stmt>	ShowStmt
 %type <stmt>	UseDBStmt
 
+%type <stmt>	InsertValues
+
 %type <expr>	Expression
+%type <exprs>	ExpressionList
 %type <tgelem>	TargetElem
 %type <tglist>	TargetClause
 %type <tname>	FromClause
@@ -44,7 +49,8 @@ package parser
 %type <colType>		TypeName NumericType StringType
 %type <colOption>	ColumnOptionItem
 %type <colOptions>	ColumnOption
-%type <str>		Name
+%type <strs>	ColumnListOpt
+%type <str>		Name IntoOpt ValueSym
 %type <str>		UnReservedKeyword ReservedKeyword
 
 %token <item> intLit floatLit decLit hexLit bitLit
@@ -109,6 +115,7 @@ Stmt:
 	CreateDatabaseStmt
 |	CreateTableStmt
 |	SelectStmt
+|	InsertStmt
 |	DropDatabaseStmt
 |	DropTableStmt
 |	ShowStmt
@@ -180,6 +187,16 @@ LimitClause:
 		$$ = nil
 	}
 	
+ExpressionList:
+	Expression
+	{
+		$$ = Exprs{$1}
+	}
+|	ExpressionList ',' Expression
+	{
+		$$ = append($1, $3)
+	}
+	
 Expression:
 	Name
 	{
@@ -206,6 +223,41 @@ Expression:
 		$$ = nil
 	}
 
+InsertStmt:
+	INSERT IntoOpt TableName InsertValues
+	{
+		n := $4.(*InsertStmt)
+		n.TName = $3
+		$$ = n
+	}
+
+InsertValues:
+	'(' ColumnListOpt ')' ValueSym '(' ExpressionList ')'
+	{
+		$$ = &InsertStmt{ColumnList: $2, Values: $6}
+	}
+|	ValueSym '(' ExpressionList ')'
+	{
+		$$ = &InsertStmt{Values: $3}
+	}
+
+ColumnListOpt:
+	Name
+	{
+		$$ = []string{$1}
+	}
+|	ColumnListOpt ',' Name
+	{
+		$$ = append($1, $3)
+	}
+
+IntoOpt:
+	{}
+|	INTO
+
+ValueSym:
+	VALUE
+|	VALUES
 
 CreateDatabaseStmt:
 	CREATE DATABASE Name

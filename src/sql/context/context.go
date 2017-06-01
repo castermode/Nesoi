@@ -23,6 +23,10 @@ func (ctx *Context) AffectedRows() uint64 {
 	return ctx.affectedRows
 }
 
+func (ctx *Context) SetAffectedRows(rows uint64) {
+	ctx.affectedRows = rows
+}
+
 func (ctx *Context) LastInsertID() uint64 {
 	return ctx.lastInsertID
 }

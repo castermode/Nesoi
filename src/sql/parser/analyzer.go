@@ -47,6 +47,8 @@ func (a *Analyzer) transformStmt(stmt Statement) (Statement, error) {
 	switch stmt.(type) {
 	case *SelectStmt:
 		return a.transformSelectStmt(stmt)
+	case *InsertStmt:
+		return a.transformInsertStmt(stmt)
 	case *ShowDatabases:
 		return &Show{Operator: SDATABASES}, nil
 	case *ShowTables:
@@ -176,4 +178,116 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 		Qual:      qual,
 		Limit:     limitNum,
 	}, nil
+}
+
+func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
+	istmt := stmt.(*InsertStmt)
+
+	tblName := a.context.GetTableName(istmt.TName.Schema, istmt.TName.Name)
+	tableKey := store.SystemFlag + store.TableFlag + tblName
+	tableValue, err := a.driver.Get(tableKey).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	cds := ColumnTableDefs{}
+	err = json.Unmarshal(util.ToSlice(tableValue), &cds)
+	if err != nil {
+		return nil, err
+	}
+
+	pks := []int{}
+	vm := make(map[int]interface{})
+	cm := make(map[string]*ColumnTableDef)
+	cm1 := make(map[int]*ColumnTableDef)
+	for _, cd := range cds {
+		cm[cd.Name] = cd
+		cm1[cd.Pos] = cd
+		if cd.PrimaryKey {
+			pks = append(pks, cd.Pos)
+		}
+	}
+
+	var e string
+	//check column if exists and type
+	if istmt.ColumnList == nil {
+		l := len(cds)
+		istmt.ColumnList = make([]string, 0, l)
+		for i := 0; i < l; i++ {
+			istmt.ColumnList = append(istmt.ColumnList, cm1[i].Name)
+		}
+	}
+
+	i := 0
+	for _, c := range istmt.ColumnList {
+		if _, ok := cm[c]; !ok {
+			e = c + " not exists!"
+			return nil, errors.New(e)
+		}
+
+		// we only support valueexpr now
+		ve, ok := istmt.Values[i].(*ValueExpr)
+		if !ok {
+			return nil, errors.New("we only support value-expr now!")
+		}
+
+		switch cm[c].Type.(type) {
+		case *IntType:
+			if _, ok := ve.Item.(int64); !ok {
+				e = "the value of " + cm[c].Name + " isn't int type!"
+				return nil, errors.New(e)
+			}
+		case *StringType:
+			if _, ok := ve.Item.(string); !ok {
+				e = "the value of " + cm[c].Name + " isn't string type!"
+				return nil, errors.New(e)
+			}
+		}
+
+		vm[cm[c].Pos] = ve.Item
+		i++
+	}
+
+	//check null
+	if len(vm) < len(cds) {
+		for _, cd := range cds {
+			if _, ok := vm[cd.Pos]; !ok {
+				if cd.PrimaryKey {
+					e = cd.Name + " is primary key, cann't be null"
+					return nil, errors.New(e)
+				}
+
+				if cd.Nullable == NotNull {
+					e = cd.Name + " is NotNull!"
+					return nil, errors.New(e)
+				}
+
+				vm[cd.Pos] = nil
+			}
+		}
+	}
+
+	//check primary key
+	pkv := store.UserFlag + tblName + "/"
+	for _, pk := range pks {
+		switch vm[pk].(type) {
+		case int64:
+			v := vm[pk].(int64)
+			pkv += util.ToString(util.DumpLengthEncodedInt(uint64(v)))
+		case string:
+			v := vm[pk].(string)
+			pkv += util.ToString(util.DumpLengthEncodedString(util.ToSlice(v)))
+		}
+	}
+	_, err = a.driver.Get(pkv).Result()
+	if err == nil {
+		return nil, errors.New("primary key cann't repeat!")
+	}
+
+	if err != redis.Nil {
+		return nil, err
+	}
+
+	return &InsertQuery{NumColumns: len(cds), PK: pkv, Values: vm}, nil
+
 }

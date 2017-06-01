@@ -2,7 +2,6 @@ package executor
 
 import (
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/castermode/Nesoi/src/sql/context"
@@ -89,18 +88,16 @@ func (s *ScanExec) nextKey() ([]byte, bool, error) {
 		return nil, false, nil
 	}
 
-	is := strconv.FormatInt(1, 10)
 	if s.keys != nil && s.pos < len(s.keys) {
 		if s.pos == len(s.keys)-1 && s.cursor == 0 {
 			s.done = true
 		}
 		key := s.keys[s.pos]
 		s.pos++
-		l := len(key) - len(is)
-		return util.ToSlice(key[0:l]), true, nil
+		return util.ToSlice(key), true, nil
 	} else {
 		var err error
-		match := store.UserFlag + s.scan.From.Name + "/*/" + is
+		match := store.UserFlag + s.scan.From.Name + "/*"
 		s.keys, s.cursor, err = s.driver.Scan(s.cursor, match, 10).Result()
 		if err != nil {
 			return nil, true, err
@@ -109,13 +106,50 @@ func (s *ScanExec) nextKey() ([]byte, bool, error) {
 		if s.keys != nil {
 			s.pos++
 			key := s.keys[0]
-			l := len(key) - len(is)
-			return util.ToSlice(key[0:l]), true, nil
+			return util.ToSlice(key), true, nil
 		}
 
 		s.done = true
 		return nil, false, nil
 	}
+}
+
+func parseColumnValue(raw string, cm map[int]*parser.ColumnTableDef) (map[int]*util.Datum, error) {
+	l := len(cm)
+	pos := 0
+
+	dm := make(map[int]*util.Datum)
+	for i := 0; i < l; i++ {
+		d := &util.Datum{}
+		if raw[pos] == '0' {
+			pos++
+			d.SetK(util.KindNull)
+		} else {
+			pos++
+			switch cm[i].Type.(type) {
+			case *parser.IntType:
+				i, _, n := util.ParseLengthEncodedInt(util.ToSlice(raw[pos:]))
+				d.SetK(util.KindInt64)
+				d.SetI(int64(i))
+				pos += n
+			case *parser.StringType:
+				s, _, n, err := util.ParseLengthEncodedBytes(util.ToSlice(raw[pos:]))
+				if err != nil {
+					return nil, err
+				}
+				d.SetK(util.KindString)
+				d.SetB(s)
+				pos += n
+			}
+		}
+		dm[i] = d
+	}
+
+	if len(dm) != len(cm) {
+		return nil, errors.New("parse column value error!")
+	}
+
+	return dm, nil
 }
 
 func (s *ScanExec) Next() (*result.Record, error) {
@@ -127,35 +161,30 @@ func (s *ScanExec) Next() (*result.Record, error) {
 		return nil, nil
 	}
 
+	// Get and parse one row
+	var raw string
+	var dm map[int]*util.Datum
+	raw, err = s.driver.Get(util.ToString(key)).Result()
+	if err != nil {
+		return nil, err
+	}
+	dm, err = parseColumnValue(raw, s.scan.From.ColumnMap)
+	if err != nil {
+		return nil, err
+	}
+
 	var datums []*util.Datum = make([]*util.Datum, 0)
+	var d *util.Datum
 	for _, f := range s.scan.Fields {
-		d := &util.Datum{}
 		switch f.Type {
 		case parser.ETARGET:
-			columnKey := util.ToString(key) + strconv.FormatInt(int64(f.FieldID), 10)
-			value, err := s.driver.Get(columnKey).Result()
-			if err != nil {
-				return nil, errors.New("Get kv storage error!")
-			}
-
-			if value[0] == '0' {
-				d.SetK(util.KindNull)
-			} else {
-				parsedValue := value[1:]
-				switch s.scan.From.ColumnMap[f.FieldID].Type.(type) {
-				case *parser.IntType:
-					i, err := strconv.ParseInt(parsedValue, 10, 64)
-					if err != nil {
-						return nil, err
-					}
-					d.SetK(util.KindInt64)
-					d.SetI(i)
-				case *parser.StringType:
-					d.SetK(util.KindString)
-					d.SetB(util.ToSlice(parsedValue))
-				}
+			var ok bool
+			d, ok = dm[f.FieldID]
+			if !ok {
+				return nil, errors.New("parse column value error!")
 			}
 		case parser.ESYSVAR:
+			d = &util.Datum{}
 			sv := context.GetSysVar(f.SysVar)
 			if sv == nil {
 				return nil, errors.New("unsupport sysvar @@" + f.SysVar)
@@ -252,43 +281,40 @@ func (s *ScanWithPKExec) Next() (*result.Record, error) {
 		r := s.scanpk.PK.(*parser.ComparisonQual).Right
 		switch r.Value.(type) {
 		case int64:
-			pk = strconv.FormatInt(r.Value.(int64), 10)
+			v := r.Value.(int64)
+			pk = util.ToString(util.DumpLengthEncodedInt(uint64(v)))
 		case string:
-			pk = r.Value.(string)
+			v := r.Value.(string)
+			pk = util.ToString(util.DumpLengthEncodedString(util.ToSlice(v)))
 		}
 		pk = store.UserFlag + s.scanpk.From.Name + "/" + pk
 	default:
 		return nil, errors.New("unsupport where clause now!")
 	}
+	
+	// Get and parse one row
+	var dm map[int]*util.Datum
+	raw, err := s.driver.Get(pk).Result()
+	if err != nil {
+		return nil, err
+	}
+	dm, err = parseColumnValue(raw, s.scanpk.From.ColumnMap)
+	if err != nil {
+		return nil, err
+	}
+	
 	var datums []*util.Datum = make([]*util.Datum, 0)
-	for _, f := range s.scanpk.Fields {
-		d := &util.Datum{}
+	for _, f := range s.scanpk.Fields {	
+		var d *util.Datum
 		switch f.Type {
 		case parser.ETARGET:
-			columnKey := pk + strconv.FormatInt(int64(f.FieldID), 10)
-			value, err := s.driver.Get(columnKey).Result()
-			if err != nil {
-				return nil, errors.New("Get kv storage error!")
-			}
-
-			if value[0] == '0' {
-				d.SetK(util.KindNull)
-			} else {
-				parsedValue := value[1:]
-				switch s.scanpk.From.ColumnMap[f.FieldID].Type.(type) {
-				case *parser.IntType:
-					i, err := strconv.ParseInt(parsedValue, 10, 64)
-					if err != nil {
-						return nil, err
-					}
-					d.SetK(util.KindInt64)
-					d.SetI(i)
-				case *parser.StringType:
-					d.SetK(util.KindString)
-					d.SetB(util.ToSlice(parsedValue))
-				}
+			var ok bool
+			d, ok = dm[f.FieldID]
+			if !ok {
+				return nil, errors.New("parse column value error")
 			}
 		case parser.ESYSVAR:
+			d = &util.Datum{}
 			sv := context.GetSysVar(f.SysVar)
 			if sv == nil {
 				return nil, errors.New("unsupport sysvar @@" + f.SysVar)

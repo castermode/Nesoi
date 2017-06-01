@@ -65,6 +65,11 @@ func (executor *Executor) Execute(sql string) ([]result.Result, error) {
 			if err != nil {
 				return nil, err
 			}
+		case parser.RowsAffected:
+			rs, err = executor.executeWrite(query)
+			if err != nil {
+				return nil, err
+			}
 		case parser.Rows:
 			p, err = plan.Optimize(query)
 			if err != nil {
@@ -93,6 +98,22 @@ func (executor *Executor) executeQuery(query parser.Statement) (result.Result, e
 	if err != nil {
 		return nil, err
 	}
+	return nil, nil
+}
+
+func (executor *Executor) executeWrite(query parser.Statement) (result.Result, error) {
+	var result result.Result
+
+	switch query.(type) {
+	case *parser.InsertQuery:
+		result = &InsertExec{stmt: query, driver: executor.driver, context: executor.context}
+	}
+
+	_, err := result.Next()
+	if err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
 

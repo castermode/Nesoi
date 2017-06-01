@@ -60,6 +60,7 @@ func (cc *clientConn) Start() {
 			cc.writeError(err)
 		}
 		cc.sequence = 0
+		cc.ctx.SetAffectedRows(0)
 	}
 }
 
@@ -408,7 +409,7 @@ func (cc *clientConn) handleQuery(sql string) error {
 	}
 
 	if results != nil {
-		if len(results) == 1{
+		if len(results) == 1 {
 			err = cc.writeResult(results[0])
 		} else {
 			err = cc.writeMultiResult(results)

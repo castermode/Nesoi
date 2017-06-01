@@ -56,6 +56,14 @@ func (*SelectStmt) StatementType() int {
 	return Rows
 }
 
+func (*InsertStmt) StatementType() int {
+	return RowsAffected
+}
+
+func (*InsertQuery) StatementType() int {
+	return RowsAffected
+}
+
 func (*Show) StatementType() int {
 	return Rows
 }
