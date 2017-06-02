@@ -104,8 +104,11 @@ func (s *ScanExec) nextKey() ([]byte, bool, error) {
 		}
 		s.pos = 0
 		if s.keys != nil {
-			s.pos++
+			if s.pos == len(s.keys)-1 && s.cursor == 0 {
+				s.done = true
+			}
 			key := s.keys[0]
+			s.pos++
 			return util.ToSlice(key), true, nil
 		}
 
