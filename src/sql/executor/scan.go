@@ -107,9 +107,13 @@ func (s *ScanExec) nextKey() ([]byte, bool, error) {
 			if s.pos == len(s.keys)-1 && s.cursor == 0 {
 				s.done = true
 			}
-			key := s.keys[0]
-			s.pos++
-			return util.ToSlice(key), true, nil
+			if len(s.keys) > 0 {
+				key := s.keys[0]
+				s.pos++
+				return util.ToSlice(key), true, nil
+			} else {
+				return nil, true, nil
+			}
 		}
 
 		s.done = true
@@ -156,12 +160,22 @@ func parseColumnValue(raw string, cm map[int]*parser.ColumnTableDef) (map[int]*u
 }
 
 func (s *ScanExec) Next() (*result.Record, error) {
-	key, exist, err := s.nextKey()
-	if err != nil {
-		return nil, err
-	}
-	if !exist {
-		return nil, nil
+	var key []byte
+	var exist bool
+	var err error
+
+	for {
+		key, exist, err = s.nextKey()
+		if err != nil {
+			return nil, err
+		}
+		if !exist {
+			return nil, nil
+		}
+
+		if key != nil {
+			break
+		}
 	}
 
 	// Get and parse one row

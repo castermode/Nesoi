@@ -165,6 +165,7 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 
 		if all {
 			tgrs = tgrs1
+			i = len(tgrs) + 1
 			break
 		} else {
 			tgr := tgrs1[0]
