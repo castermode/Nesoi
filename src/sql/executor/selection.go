@@ -49,7 +49,7 @@ func (s *SelectionExec) Next() (*result.Record, error) {
 			s.done = true
 		}
 
-		if v.Equal(r.Datums[s.filter.Pos]) {
+		if v.Equal(r.Datums[s.filter.Pos - 1]) {
 			return r, nil
 		}
 	}

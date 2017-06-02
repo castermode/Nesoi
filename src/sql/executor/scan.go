@@ -34,22 +34,22 @@ func (s *ScanExec) Columns() ([]*store.ColumnInfo, error) {
 			ci.Schema = st[0]
 			ci.Table = st[1]
 			ci.OrgTable = st[1]
-			ci.Name = s.scan.From.ColumnMap[f.FieldID].Name
-			ci.OrgName = s.scan.From.ColumnMap[f.FieldID].Name
-			switch s.scan.From.ColumnMap[f.FieldID].Type.(type) {
+			ci.Name = s.scan.From.ColumnMap[f.FieldID - 1].Name
+			ci.OrgName = s.scan.From.ColumnMap[f.FieldID - 1].Name
+			switch s.scan.From.ColumnMap[f.FieldID - 1].Type.(type) {
 			case *parser.IntType:
 				ci.Type = mysql.TypeLong
 				ci.ColumnLength = 4
 			case *parser.StringType:
 				ci.Type = mysql.TypeString
 			}
-			if s.scan.From.ColumnMap[f.FieldID].Nullable == parser.NotNull {
+			if s.scan.From.ColumnMap[f.FieldID - 1].Nullable == parser.NotNull {
 				ci.Flag |= mysql.NotNullFlag
 			}
-			if s.scan.From.ColumnMap[f.FieldID].PrimaryKey {
+			if s.scan.From.ColumnMap[f.FieldID - 1].PrimaryKey {
 				ci.Flag |= mysql.PriKeyFlag
 			}
-			if s.scan.From.ColumnMap[f.FieldID].Unique {
+			if s.scan.From.ColumnMap[f.FieldID - 1].Unique {
 				ci.Flag |= mysql.UniqueKeyFlag
 			}
 			ret = append(ret, ci)
@@ -179,7 +179,7 @@ func (s *ScanExec) Next() (*result.Record, error) {
 		switch f.Type {
 		case parser.ETARGET:
 			var ok bool
-			d, ok = dm[f.FieldID]
+			d, ok = dm[f.FieldID - 1]
 			if !ok {
 				return nil, errors.New("parse column value error!")
 			}
@@ -221,22 +221,22 @@ func (s *ScanWithPKExec) Columns() ([]*store.ColumnInfo, error) {
 			ci.Schema = st[0]
 			ci.Table = st[1]
 			ci.OrgTable = st[1]
-			ci.Name = s.scanpk.From.ColumnMap[f.FieldID].Name
-			ci.OrgName = s.scanpk.From.ColumnMap[f.FieldID].Name
-			switch s.scanpk.From.ColumnMap[f.FieldID].Type.(type) {
+			ci.Name = s.scanpk.From.ColumnMap[f.FieldID - 1].Name
+			ci.OrgName = s.scanpk.From.ColumnMap[f.FieldID - 1].Name
+			switch s.scanpk.From.ColumnMap[f.FieldID - 1].Type.(type) {
 			case *parser.IntType:
 				ci.Type = mysql.TypeLong
 				ci.ColumnLength = 4
 			case *parser.StringType:
 				ci.Type = mysql.TypeString
 			}
-			if s.scanpk.From.ColumnMap[f.FieldID].Nullable == parser.NotNull {
+			if s.scanpk.From.ColumnMap[f.FieldID - 1].Nullable == parser.NotNull {
 				ci.Flag |= mysql.NotNullFlag
 			}
-			if s.scanpk.From.ColumnMap[f.FieldID].PrimaryKey {
+			if s.scanpk.From.ColumnMap[f.FieldID - 1].PrimaryKey {
 				ci.Flag |= mysql.PriKeyFlag
 			}
-			if s.scanpk.From.ColumnMap[f.FieldID].Unique {
+			if s.scanpk.From.ColumnMap[f.FieldID - 1].Unique {
 				ci.Flag |= mysql.UniqueKeyFlag
 			}
 			ret = append(ret, ci)
@@ -309,7 +309,7 @@ func (s *ScanWithPKExec) Next() (*result.Record, error) {
 		switch f.Type {
 		case parser.ETARGET:
 			var ok bool
-			d, ok = dm[f.FieldID]
+			d, ok = dm[f.FieldID -1]
 			if !ok {
 				return nil, errors.New("parse column value error")
 			}

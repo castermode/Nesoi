@@ -46,7 +46,7 @@ func (node *SelectQuery) IsPKFilter() bool {
 	}
 
 	if node.Qual.Left.Type == ETARGET && node.Qual.Right.Type == EVALUE {
-		if node.From.ColumnMap[node.Qual.Left.FieldID].PrimaryKey {
+		if node.From.ColumnMap[node.Qual.Left.FieldID - 1].PrimaryKey {
 			return true
 		}
 	}

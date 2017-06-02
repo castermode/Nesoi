@@ -10,6 +10,7 @@ import (
 type ProjectionExec struct {
 	fieldsNum int
 	children  []result.Result
+	done      bool
 }
 
 func NewProjectionExec(p *plan.Projection, e *Executor) *ProjectionExec {
@@ -41,9 +42,17 @@ func (p *ProjectionExec) Columns() ([]*store.ColumnInfo, error) {
 }
 
 func (p *ProjectionExec) Next() (*result.Record, error) {
+	if p.done {
+		return nil, nil
+	}
+
 	record, err := p.children[0].Next()
 	if err != nil {
 		return nil, err
+	}
+	if record == nil {
+		p.done = true
+		return nil, nil
 	}
 
 	datums := []*util.Datum{}

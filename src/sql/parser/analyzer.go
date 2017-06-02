@@ -109,7 +109,7 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 		}
 
 		cjds := ColumnTableJsonDefs{}
-		cds := ColumnTableDefs{}
+		cds = ColumnTableDefs{}
 		err = json.Unmarshal(util.ToSlice(tableValue), &cjds)
 		if err != nil {
 			return nil, err
@@ -134,7 +134,7 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 		var cm map[int]*ColumnTableDef
 		cm = make(map[int]*ColumnTableDef)
 		for _, cd := range cds {
-			cm[cd.Pos] = cd
+			cm[cd.Pos - 1] = cd
 		}
 
 		from = &TableInfo{Name: tblName, ColumnMap: cm}
@@ -236,9 +236,9 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 	cm1 := make(map[int]*ColumnTableDef)
 	for _, cd := range cds {
 		cm[cd.Name] = cd
-		cm1[cd.Pos] = cd
+		cm1[cd.Pos - 1] = cd
 		if cd.PrimaryKey {
-			pks = append(pks, cd.Pos)
+			pks = append(pks, cd.Pos - 1)
 		}
 	}
 
@@ -278,14 +278,14 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 			}
 		}
 
-		vm[cm[c].Pos] = ve.Item
+		vm[cm[c].Pos - 1] = ve.Item
 		i++
 	}
 
 	//check null
 	if len(vm) < len(cds) {
 		for _, cd := range cds {
-			if _, ok := vm[cd.Pos]; !ok {
+			if _, ok := vm[cd.Pos - 1]; !ok {
 				if cd.PrimaryKey {
 					e = cd.Name + " is primary key, cann't be null"
 					return nil, errors.New(e)
@@ -296,7 +296,7 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 					return nil, errors.New(e)
 				}
 
-				vm[cd.Pos] = nil
+				vm[cd.Pos - 1] = nil
 			}
 		}
 	}
