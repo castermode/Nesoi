@@ -1,4 +1,5 @@
 package parser
+
 import (
 	"encoding/json"
 	"errors"
@@ -57,13 +58,23 @@ func (a *Analyzer) transformStmt(stmt Statement) (Statement, error) {
 	return nil, errors.New("unsupport statement: " + stmt.String())
 }
 
-func (a *Analyzer) transformTarget(expr Expr, cds ColumnTableDefs, tgr *TargetRes) error {
+func (a *Analyzer) transformTarget(expr Expr, cds ColumnTableDefs) ([]*TargetRes, bool, error) {
+	tgrs := []*TargetRes{}
 	switch expr.(type) {
 	case *VariableExpr:
+		var all bool
 		vtarget := expr.(*VariableExpr)
-		if vtarget.Type == ETARGET {
+		if vtarget.Type == EALLTARGET {
+			all = true
+			for _, cd := range cds {
+				tgr := &TargetRes{Type: ETARGET}
+				tgr.TargetID = cd.Pos
+				tgr.FieldID = cd.Pos
+				tgrs = append(tgrs, tgr)
+			}
+		} else if vtarget.Type == ETARGET {
 			var find bool = false
-			tgr.Type = ETARGET
+			tgr := &TargetRes{Type: ETARGET}
 			for _, cd := range cds {
 				if strings.EqualFold(vtarget.Name, cd.Name) {
 					tgr.FieldID = cd.Pos
@@ -72,22 +83,25 @@ func (a *Analyzer) transformTarget(expr Expr, cds ColumnTableDefs, tgr *TargetRe
 				}
 			}
 			if !find {
-				return errors.New("Invalid target name " + vtarget.Name)
+				return nil, false, errors.New("Invalid target name " + vtarget.Name)
 			}
+			tgrs = append(tgrs, tgr)
 		} else {
 			//sysVar
-			tgr.Type = ESYSVAR
+			tgr := &TargetRes{Type: ESYSVAR}
 			tgr.SysVar = vtarget.Name[2:]
+			tgrs = append(tgrs, tgr)
 		}
-		return nil
+		return tgrs, all, nil
 	case *ValueExpr:
+		tgr := &TargetRes{Type: EVALUE}
 		vtarget := expr.(*ValueExpr)
-		tgr.Type = EVALUE
 		tgr.Value = vtarget.Item
-		return nil
+		tgrs = append(tgrs, tgr)
+		return tgrs, false, nil
 	}
 
-	return errors.New("unsupport target type: " + expr.String())
+	return nil, false, errors.New("unsupport target type: " + expr.String())
 }
 
 func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
@@ -133,7 +147,7 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 		var cm map[int]*ColumnTableDef
 		cm = make(map[int]*ColumnTableDef)
 		for _, cd := range cds {
-			cm[cd.Pos - 1] = cd
+			cm[cd.Pos-1] = cd
 		}
 
 		from = &TableInfo{Name: tblName, ColumnMap: cm}
@@ -144,15 +158,22 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 	var tgrs []*TargetRes
 	i := 1
 	for _, target := range sstmt.Target {
-		tgr := &TargetRes{TargetID: i}
-		err := a.transformTarget(target.Item, cds, tgr)
+		tgrs1, all, err := a.transformTarget(target.Item, cds)
 		if err != nil {
 			return nil, err
 		}
-		tgrs = append(tgrs, tgr)
+
+		if all {
+			tgrs = tgrs1
+			break
+		} else {
+			tgr := tgrs1[0]
+			tgr.TargetID = i
+			tgrs = append(tgrs, tgr)
+		}
 		i++
 	}
-	num = i - 1
+	num = len(tgrs)
 
 	// transform where clause
 	var qual *ComparisonQual
@@ -162,19 +183,22 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 		case *ComparisonExpr:
 			cond := sstmt.Where.Cond.(*ComparisonExpr)
 			qual.Operator = cond.Operator
-			qual.Left = &TargetRes{TargetID: i}
-			i++
-			qual.Right = &TargetRes{TargetID: i}
-			err := a.transformTarget(cond.Left, cds, qual.Left)
+			tgrs1, _, err := a.transformTarget(cond.Left, cds)
 			if err != nil {
 				return nil, err
 			}
+			qual.Left = tgrs1[0]
+			qual.Left.TargetID = i
 			tgrs = append(tgrs, qual.Left)
 
-			err = a.transformTarget(cond.Right, cds, qual.Right)
+			i++
+			var tgrs2 []*TargetRes
+			tgrs2, _, err = a.transformTarget(cond.Right, cds)
 			if err != nil {
 				return nil, err
 			}
+			qual.Right = tgrs2[0]
+			qual.Right.TargetID = i
 			tgrs = append(tgrs, qual.Right)
 		default:
 			return nil, errors.New("unsupport qual target: " + sstmt.Where.Cond.String())
@@ -235,9 +259,9 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 	cm1 := make(map[int]*ColumnTableDef)
 	for _, cd := range cds {
 		cm[cd.Name] = cd
-		cm1[cd.Pos - 1] = cd
+		cm1[cd.Pos-1] = cd
 		if cd.PrimaryKey {
-			pks = append(pks, cd.Pos - 1)
+			pks = append(pks, cd.Pos-1)
 		}
 	}
 
@@ -277,14 +301,14 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 			}
 		}
 
-		vm[cm[c].Pos - 1] = ve.Item
+		vm[cm[c].Pos-1] = ve.Item
 		i++
 	}
 
 	//check null
 	if len(vm) < len(cds) {
 		for _, cd := range cds {
-			if _, ok := vm[cd.Pos - 1]; !ok {
+			if _, ok := vm[cd.Pos-1]; !ok {
 				if cd.PrimaryKey {
 					e = cd.Name + " is primary key, cann't be null"
 					return nil, errors.New(e)
@@ -295,7 +319,7 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 					return nil, errors.New(e)
 				}
 
-				vm[cd.Pos - 1] = nil
+				vm[cd.Pos-1] = nil
 			}
 		}
 	}

@@ -17,6 +17,7 @@ const (
 const (
 	ESYSVAR int = iota
 	EUSERVAR
+	EALLTARGET
 	ETARGET
 	EVALUE
 )

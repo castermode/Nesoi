@@ -155,6 +155,10 @@ TargetElem:
 	{
 		$$ = &TargetElem{Item: $1}
 	}
+|	'*'
+	{
+		$$ = &TargetElem{Item: &VariableExpr{Type: EALLTARGET}}
+	}
 	
 
 FromClause:
