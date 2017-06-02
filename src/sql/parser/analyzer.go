@@ -1,5 +1,4 @@
 package parser
-
 import (
 	"encoding/json"
 	"errors"
@@ -63,16 +62,16 @@ func (a *Analyzer) transformTarget(expr Expr, cds ColumnTableDefs, tgr *TargetRe
 	case *VariableExpr:
 		vtarget := expr.(*VariableExpr)
 		if vtarget.Type == ETARGET {
-			var num int
+			var find bool = false
 			tgr.Type = ETARGET
 			for _, cd := range cds {
-				num++
 				if strings.EqualFold(vtarget.Name, cd.Name) {
 					tgr.FieldID = cd.Pos
+					find = true
 					break
 				}
 			}
-			if num > len(cds) {
+			if !find {
 				return errors.New("Invalid target name " + vtarget.Name)
 			}
 		} else {
