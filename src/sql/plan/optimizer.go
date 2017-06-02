@@ -51,7 +51,7 @@ func doSelectOptimize(query parser.Statement) (Plan, error) {
 			}
 
 			if s.Qual != nil {
-				qual := &Qual{Pos: s.Qual.Left.TargetID, Value: s.Qual.Right.Value}
+				qual := &Qual{Pos: s.Qual.Left.FieldID, Value: s.Qual.Right.Value}
 				splan := &Selection{Filter: qual}
 				plan = appendPlan(splan, plan)
 			}
