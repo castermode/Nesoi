@@ -63,5 +63,8 @@ func (p *ProjectionExec) Next() (*result.Record, error) {
 	}
 
 	return &result.Record{Datums: datums}, nil
+}
 
+func (p *ProjectionExec) Done() bool {
+	return p.done
 }

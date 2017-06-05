@@ -34,22 +34,22 @@ func (s *ScanExec) Columns() ([]*store.ColumnInfo, error) {
 			ci.Schema = st[0]
 			ci.Table = st[1]
 			ci.OrgTable = st[1]
-			ci.Name = s.scan.From.ColumnMap[f.FieldID - 1].Name
-			ci.OrgName = s.scan.From.ColumnMap[f.FieldID - 1].Name
-			switch s.scan.From.ColumnMap[f.FieldID - 1].Type.(type) {
+			ci.Name = s.scan.From.ColumnMap[f.FieldID-1].Name
+			ci.OrgName = s.scan.From.ColumnMap[f.FieldID-1].Name
+			switch s.scan.From.ColumnMap[f.FieldID-1].Type.(type) {
 			case *parser.IntType:
 				ci.Type = mysql.TypeLong
 				ci.ColumnLength = 4
 			case *parser.StringType:
 				ci.Type = mysql.TypeString
 			}
-			if s.scan.From.ColumnMap[f.FieldID - 1].Nullable == parser.NotNull {
+			if s.scan.From.ColumnMap[f.FieldID-1].Nullable == parser.NotNull {
 				ci.Flag |= mysql.NotNullFlag
 			}
-			if s.scan.From.ColumnMap[f.FieldID - 1].PrimaryKey {
+			if s.scan.From.ColumnMap[f.FieldID-1].PrimaryKey {
 				ci.Flag |= mysql.PriKeyFlag
 			}
-			if s.scan.From.ColumnMap[f.FieldID - 1].Unique {
+			if s.scan.From.ColumnMap[f.FieldID-1].Unique {
 				ci.Flag |= mysql.UniqueKeyFlag
 			}
 			ret = append(ret, ci)
@@ -104,7 +104,7 @@ func (s *ScanExec) nextKey() ([]byte, bool, error) {
 		}
 		s.pos = 0
 		if s.keys != nil {
-			if s.pos == len(s.keys)-1 && s.cursor == 0 {
+			if s.cursor == 0 && (s.pos == len(s.keys)-1 || len(s.keys) == 0) {
 				s.done = true
 			}
 			if len(s.keys) > 0 {
@@ -196,7 +196,7 @@ func (s *ScanExec) Next() (*result.Record, error) {
 		switch f.Type {
 		case parser.ETARGET:
 			var ok bool
-			d, ok = dm[f.FieldID - 1]
+			d, ok = dm[f.FieldID-1]
 			if !ok {
 				return nil, errors.New("parse column value error!")
 			}
@@ -221,6 +221,10 @@ func (s *ScanExec) Next() (*result.Record, error) {
 	return &result.Record{Datums: datums}, nil
 }
 
+func (s *ScanExec) Done() bool {
+	return s.done
+}
+
 type ScanWithPKExec struct {
 	scanpk  *plan.ScanWithPK
 	driver  *redis.Client
@@ -238,22 +242,22 @@ func (s *ScanWithPKExec) Columns() ([]*store.ColumnInfo, error) {
 			ci.Schema = st[0]
 			ci.Table = st[1]
 			ci.OrgTable = st[1]
-			ci.Name = s.scanpk.From.ColumnMap[f.FieldID - 1].Name
-			ci.OrgName = s.scanpk.From.ColumnMap[f.FieldID - 1].Name
-			switch s.scanpk.From.ColumnMap[f.FieldID - 1].Type.(type) {
+			ci.Name = s.scanpk.From.ColumnMap[f.FieldID-1].Name
+			ci.OrgName = s.scanpk.From.ColumnMap[f.FieldID-1].Name
+			switch s.scanpk.From.ColumnMap[f.FieldID-1].Type.(type) {
 			case *parser.IntType:
 				ci.Type = mysql.TypeLong
 				ci.ColumnLength = 4
 			case *parser.StringType:
 				ci.Type = mysql.TypeString
 			}
-			if s.scanpk.From.ColumnMap[f.FieldID - 1].Nullable == parser.NotNull {
+			if s.scanpk.From.ColumnMap[f.FieldID-1].Nullable == parser.NotNull {
 				ci.Flag |= mysql.NotNullFlag
 			}
-			if s.scanpk.From.ColumnMap[f.FieldID - 1].PrimaryKey {
+			if s.scanpk.From.ColumnMap[f.FieldID-1].PrimaryKey {
 				ci.Flag |= mysql.PriKeyFlag
 			}
-			if s.scanpk.From.ColumnMap[f.FieldID - 1].Unique {
+			if s.scanpk.From.ColumnMap[f.FieldID-1].Unique {
 				ci.Flag |= mysql.UniqueKeyFlag
 			}
 			ret = append(ret, ci)
@@ -308,7 +312,7 @@ func (s *ScanWithPKExec) Next() (*result.Record, error) {
 	default:
 		return nil, errors.New("unsupport where clause now!")
 	}
-	
+
 	// Get and parse one row
 	var dm map[int]*util.Datum
 	raw, err := s.driver.Get(pk).Result()
@@ -319,14 +323,14 @@ func (s *ScanWithPKExec) Next() (*result.Record, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var datums []*util.Datum = make([]*util.Datum, 0)
-	for _, f := range s.scanpk.Fields {	
+	for _, f := range s.scanpk.Fields {
 		var d *util.Datum
 		switch f.Type {
 		case parser.ETARGET:
 			var ok bool
-			d, ok = dm[f.FieldID -1]
+			d, ok = dm[f.FieldID-1]
 			if !ok {
 				return nil, errors.New("parse column value error")
 			}
@@ -349,4 +353,8 @@ func (s *ScanWithPKExec) Next() (*result.Record, error) {
 	}
 	s.done = true
 	return &result.Record{Datums: datums}, nil
+}
+
+func (s *ScanWithPKExec) Done() bool {
+	return s.done
 }

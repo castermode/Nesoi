@@ -45,19 +45,19 @@ func (d *Datum) Equal(c *Datum) bool {
 	if d.k == KindNull && c.k == KindNull {
 		return true
 	}
-	
+
 	if d.k == KindInt64 && c.k == KindInt64 {
 		if d.i == c.i {
 			return true
 		}
 	}
-	
+
 	if d.k == KindString && c.k == KindString {
 		if ToString(d.b) == ToString(c.b) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -78,4 +78,20 @@ func DumpValueToText(v *Datum) ([]byte, error) {
 	default:
 		return nil, errors.New("invalid type!")
 	}
+}
+
+func DumpValueToRaw(v *Datum) ([]byte, error) {
+	var r string
+	switch v.k {
+	case KindNull:
+		return nil, nil
+	case KindInt64:
+		r += ToString(DumpLengthEncodedInt(uint64(v.i)))
+	case KindString:
+		r += ToString(DumpLengthEncodedString(v.b))
+	default:
+		return nil, errors.New("invalid type!")
+	}
+
+	return ToSlice(r), nil
 }

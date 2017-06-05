@@ -82,3 +82,7 @@ func (s *SimpleExec) Next() (*result.Record, error) {
 
 	return r, nil
 }
+
+func (s *SimpleExec) Done() bool {
+	return s.done
+}

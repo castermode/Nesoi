@@ -10,6 +10,7 @@ type LimitExec struct {
 	num      uint64
 	cur      uint64
 	children []result.Result
+	done     bool
 }
 
 func NewLimitExec(l *plan.Limit, e *Executor) *LimitExec {
@@ -30,6 +31,7 @@ func (l *LimitExec) Columns() ([]*store.ColumnInfo, error) {
 
 func (l *LimitExec) Next() (*result.Record, error) {
 	if l.cur >= l.num {
+		l.done = true
 		return nil, nil
 	}
 
@@ -40,4 +42,8 @@ func (l *LimitExec) Next() (*result.Record, error) {
 
 	l.cur++
 	return r, nil
+}
+
+func (l *LimitExec) Done() bool {
+	return l.done
 }

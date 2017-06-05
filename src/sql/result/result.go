@@ -12,4 +12,5 @@ type Record struct {
 type Result interface {
 	Columns() ([]*store.ColumnInfo, error)
 	Next() (*Record, error)
+	Done() bool
 }

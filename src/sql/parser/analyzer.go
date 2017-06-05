@@ -49,6 +49,8 @@ func (a *Analyzer) transformStmt(stmt Statement) (Statement, error) {
 		return a.transformSelectStmt(stmt)
 	case *InsertStmt:
 		return a.transformInsertStmt(stmt)
+	case *UpdateStmt:
+		return a.transformUpdateStmt(stmt)
 	case *ShowDatabases:
 		return &Show{Operator: SDATABASES}, nil
 	case *ShowTables:
@@ -347,5 +349,120 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 	}
 
 	return &InsertQuery{NumColumns: len(cds), PK: pkv, Values: vm}, nil
+}
 
+func (a *Analyzer) transformUpdateStmt(stmt Statement) (Statement, error) {
+	ustmt := stmt.(*UpdateStmt)
+	tblName := a.context.GetTableName(ustmt.TName.Schema, ustmt.TName.Name)
+	tableKey := store.SystemFlag + store.TableFlag + tblName
+	tableValue, err := a.driver.Get(tableKey).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	cjds := ColumnTableJsonDefs{}
+	cds := ColumnTableDefs{}
+	err = json.Unmarshal(util.ToSlice(tableValue), &cjds)
+	if err != nil {
+		return nil, err
+	}
+	for _, cjd := range cjds {
+		cd := &ColumnTableDef{
+			Name:       cjd.Name,
+			Pos:        cjd.Pos,
+			Nullable:   cjd.Nullable,
+			PrimaryKey: cjd.PrimaryKey,
+			Unique:     cjd.Unique,
+		}
+		switch cjd.Type {
+		case SqlInt:
+			cd.Type = &IntType{Name: "INT"}
+		case SqlString:
+			cd.Type = &StringType{Name: "STRING"}
+		}
+		cds = append(cds, cd)
+	}
+	cm := make(map[int]*ColumnTableDef)
+	cm1 := make(map[string]*ColumnTableDef)
+	for _, cd := range cds {
+		cm[cd.Pos-1] = cd
+		cm1[cd.Name] = cd
+	}
+	
+	table := &TableInfo{Name: tblName, ColumnMap: cm}
+	
+	//Get all target
+	allTarget := &VariableExpr{Type: EALLTARGET}
+	tgrs, _, err := a.transformTarget(allTarget, cds)
+	if err != nil {
+		return nil, err
+	}
+	num := len(tgrs)
+	
+	//check columnset
+	vm := make(map[int]interface{})
+	for _, cs := range ustmt.ColumnSetList {
+		var e string
+		var cd *ColumnTableDef
+		var ok bool
+		cd, ok = cm1[cs.ColumnName]
+		if !ok {
+			e = cs.ColumnName + " not exists!"
+			return nil, errors.New(e)
+		}
+
+		v := cs.Value.(*ValueExpr).Item
+		switch cd.Type.(type) {
+		case *IntType:
+			if _, ok := v.(int64); !ok {
+				e = "the value of " + cd.Name + " isn't int type!"
+				return nil, errors.New(e)
+			}
+		case *StringType:
+			if _, ok := v.(string); !ok {
+				e = "the value of " + cd.Name + " isn't string type!"
+				return nil, errors.New(e)
+			}
+		}
+		vm[cd.Pos - 1] = v
+	}
+	
+	// transform where clause
+	var qual *ComparisonQual
+	if ustmt.Where != nil {
+		i := num + 1
+		qual = &ComparisonQual{}
+		switch ustmt.Where.Cond.(type) {
+		case *ComparisonExpr:
+			cond := ustmt.Where.Cond.(*ComparisonExpr)
+			qual.Operator = cond.Operator
+			tgrs1, _, err := a.transformTarget(cond.Left, cds)
+			if err != nil {
+				return nil, err
+			}
+			qual.Left = tgrs1[0]
+			qual.Left.TargetID = i
+			tgrs = append(tgrs, qual.Left)
+
+			i++
+			var tgrs2 []*TargetRes
+			tgrs2, _, err = a.transformTarget(cond.Right, cds)
+			if err != nil {
+				return nil, err
+			}
+			qual.Right = tgrs2[0]
+			qual.Right.TargetID = i
+			tgrs = append(tgrs, qual.Right)
+		default:
+			return nil, errors.New("unsupport qual target: " + ustmt.Where.Cond.String())
+		}
+	}
+	
+	return &UpdateQuery {
+		Table: table,
+		Fields: tgrs,
+		FieldsNum: num,
+		Values: vm,
+		Qual: qual,
+	}, nil
 }

@@ -103,15 +103,31 @@ func (executor *Executor) executeQuery(query parser.Statement) (result.Result, e
 
 func (executor *Executor) executeWrite(query parser.Statement) (result.Result, error) {
 	var result result.Result
+	var p plan.Plan
+	var err error
 
 	switch query.(type) {
 	case *parser.InsertQuery:
 		result = &InsertExec{stmt: query, driver: executor.driver, context: executor.context}
+	case *parser.UpdateQuery:
+		p, err = plan.Optimize(query)
+		if err != nil {
+			return nil, err
+		}
+		result, err = executor.executePlan(p)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	_, err := result.Next()
-	if err != nil {
-		return nil, err
+	for {
+		if result.Done() {
+			break
+		}
+		_, err := result.Next()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return nil, nil
@@ -140,6 +156,9 @@ func makePlanExec(p plan.Plan, e *Executor) result.Result {
 	case *plan.Limit:
 		s := p.(*plan.Limit)
 		return NewLimitExec(s, e)
+	case *plan.Update:
+		s := p.(*plan.Update)
+		return NewUpdateExec(s, e)
 	}
 
 	return nil

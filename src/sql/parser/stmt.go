@@ -60,7 +60,7 @@ func (*InsertStmt) StatementType() int {
 	return RowsAffected
 }
 
-func (*InsertQuery) StatementType() int {
+func (*UpdateStmt) StatementType() int {
 	return RowsAffected
 }
 
@@ -70,4 +70,12 @@ func (*Show) StatementType() int {
 
 func (*SelectQuery) StatementType() int {
 	return Rows
+}
+
+func (*InsertQuery) StatementType() int {
+	return RowsAffected
+}
+
+func (*UpdateQuery) StatementType() int {
+	return RowsAffected
 }

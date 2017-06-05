@@ -36,17 +36,17 @@ func (node *SelectQuery) String() string {
 	return "Select Query"
 }
 
-func (node *SelectQuery) IsPKFilter() bool {
-	if node.Qual == nil {
+func IsPKFilter(qual *ComparisonQual, cm map[int]*ColumnTableDef) bool {
+	if qual == nil {
 		return false
 	}
 
-	if node.Qual.Left == nil || node.Qual.Right == nil {
+	if qual.Left == nil || qual.Right == nil {
 		return false
 	}
 
-	if node.Qual.Left.Type == ETARGET && node.Qual.Right.Type == EVALUE {
-		if node.From.ColumnMap[node.Qual.Left.FieldID - 1].PrimaryKey {
+	if qual.Left.Type == ETARGET && qual.Right.Type == EVALUE {
+		if cm[qual.Left.FieldID-1].PrimaryKey {
 			return true
 		}
 	}
@@ -68,11 +68,23 @@ func (node *Show) String() string {
 }
 
 type InsertQuery struct {
-	NumColumns	int
-	PK  		string
-	Values      map[int]interface{}
+	NumColumns int
+	PK         string
+	Values     map[int]interface{}
 }
 
 func (node *InsertQuery) String() string {
 	return "INSERT QUERY"
+}
+
+type UpdateQuery struct {
+	Table     *TableInfo
+	Fields    []*TargetRes
+	FieldsNum int
+	Values    map[int]interface{}
+	Qual      *ComparisonQual
+}
+
+func (node *UpdateQuery) String() string {
+	return "UPDATE QUERY"
 }

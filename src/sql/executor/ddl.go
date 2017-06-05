@@ -49,6 +49,10 @@ func (ddl *DDLExec) Next() (*result.Record, error) {
 	return nil, nil
 }
 
+func (ddl *DDLExec) Done() bool {
+	return ddl.done
+}
+
 func (ddl *DDLExec) executeCreateDatabase() error {
 	stmt := ddl.stmt.(*parser.CreateDatabase)
 	dbName := store.SystemFlag + store.DBFlag + stmt.DBName

@@ -114,3 +114,7 @@ func (s *ShowExec) Next() (*result.Record, error) {
 
 	return &result.Record{Datums: datums}, nil
 }
+
+func (s *ShowExec) Done() bool {
+	return s.done
+}

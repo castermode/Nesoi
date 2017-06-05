@@ -14,6 +14,8 @@ package parser
 	colType 	ColumnType
 	colOption	ColumnOption
 	colOptions	[]ColumnOption
+	cs 			*ColumnSet
+	csl 		[]*ColumnSet
 	expr		Expr
 	exprs		Exprs
 	tgelem		*TargetElem
@@ -30,11 +32,13 @@ package parser
 %type <stmt>	DropTableStmt
 %type <stmt>	SelectStmt
 %type <stmt>	InsertStmt
+%type <stmt>	UpdateStmt
 %type <stmt>	ShowStmt
 %type <stmt>	UseDBStmt
 
 %type <stmt>	InsertValues
 
+%type <expr>	Lit
 %type <expr>	Expression
 %type <exprs>	ExpressionList
 %type <tgelem>	TargetElem
@@ -49,6 +53,8 @@ package parser
 %type <colType>		TypeName NumericType StringType
 %type <colOption>	ColumnOptionItem
 %type <colOptions>	ColumnOption
+%type <cs>			ColumnSetOpt
+%type <csl>			ColumnSetListOpt
 %type <strs>	ColumnListOpt
 %type <str>		Name IntoOpt ValueSym
 %type <str>		UnReservedKeyword ReservedKeyword
@@ -116,6 +122,7 @@ Stmt:
 |	CreateTableStmt
 |	SelectStmt
 |	InsertStmt
+|	UpdateStmt
 |	DropDatabaseStmt
 |	DropTableStmt
 |	ShowStmt
@@ -227,6 +234,16 @@ Expression:
 		$$ = nil
 	}
 
+Lit:
+	intLit
+	{
+		$$ = &ValueExpr{Item: $1}
+	}
+|	stringLit
+	{
+		$$ = &ValueExpr{Item: $1}
+	}
+	
 InsertStmt:
 	INSERT IntoOpt TableName InsertValues
 	{
@@ -262,6 +279,28 @@ IntoOpt:
 ValueSym:
 	VALUE
 |	VALUES
+
+ColumnSetOpt:
+	Name eq Lit
+	{
+		$$ = &ColumnSet{ColumnName: $1, Value: $3}
+	}
+	
+ColumnSetListOpt:
+	ColumnSetOpt
+	{
+		$$ = []*ColumnSet{$1}
+	}
+|	ColumnSetListOpt ',' ColumnSetOpt
+	{	
+		$$ = append($1, $3)
+	}
+
+UpdateStmt:
+	UPDATE TableName SET ColumnSetListOpt WhereClause
+	{
+		$$ = &UpdateStmt{TName: $2, ColumnSetList: $4, Where: $5}
+	}
 
 CreateDatabaseStmt:
 	CREATE DATABASE Name

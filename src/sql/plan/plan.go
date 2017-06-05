@@ -174,3 +174,27 @@ func (plan *Show) GetParents() []Plan {
 func (plan *Show) GetChildren() []Plan {
 	return plan.Children
 }
+
+type Update struct {
+	Table     *parser.TableInfo
+	Values    map[int]interface{}
+	FieldsNum int
+	Parents   []Plan
+	Children  []Plan
+}
+
+func (plan *Update) AddParent(parent Plan) {
+	plan.Parents = append(plan.Parents, parent)
+}
+
+func (plan *Update) AddChild(child Plan) {
+	plan.Children = append(plan.Children, child)
+}
+
+func (plan *Update) GetParents() []Plan {
+	return plan.Parents
+}
+
+func (plan *Update) GetChildren() []Plan {
+	return plan.Children
+}

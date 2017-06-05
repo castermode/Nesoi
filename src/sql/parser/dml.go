@@ -87,24 +87,56 @@ type InsertStmt struct {
 	Values     Exprs
 }
 
-func (node * InsertStmt) String() string {
+func (node *InsertStmt) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("INSERT INTO")
-	
+
 	if node.TName != nil {
 		fmt.Fprintf(&buf, " %s", node.TName)
 	}
-	
+
 	buf.WriteString("(")
 	for _, c := range node.ColumnList {
 		fmt.Fprintf(&buf, "%s, ", c)
 	}
 	buf.WriteString(") VALUES (")
-	
+
 	for _, v := range node.Values {
 		fmt.Fprintf(&buf, "%s, ", v)
 	}
 	buf.WriteString(")")
-	
+
+	return buf.String()
+}
+
+type ColumnSet struct {
+	ColumnName string
+	Value      Expr
+}
+
+type UpdateStmt struct {
+	TName         *TableName
+	ColumnSetList []*ColumnSet
+	Where         *WhereClause
+}
+
+func (node *UpdateStmt) String() string {
+	var buf bytes.Buffer
+	buf.WriteString("UPDATE")
+
+	if node.TName != nil {
+		fmt.Fprintf(&buf, " %s", node.TName)
+	}
+
+	buf.WriteString(" SET ")
+
+	for _, cs := range node.ColumnSetList {
+		fmt.Fprintf(&buf, "%s=%s, ", cs.ColumnName, cs.Value)
+	}
+
+	if node.Where != nil {
+		fmt.Fprintf(&buf, "WHERE %s", node.Where)
+	}
+
 	return buf.String()
 }
