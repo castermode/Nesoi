@@ -11,12 +11,11 @@ import (
 	"github.com/castermode/Nesoi/src/sql/result"
 	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/castermode/Nesoi/src/sql/util"
-	"github.com/go-redis/redis"
 )
 
 type ScanExec struct {
 	scan    *plan.Scan
-	driver  *redis.Client
+	driver  store.Driver
 	context *context.Context
 	keys    []string
 	pos     int
@@ -98,7 +97,7 @@ func (s *ScanExec) nextKey() ([]byte, bool, error) {
 	} else {
 		var err error
 		match := store.UserFlag + s.scan.From.Name + "/*"
-		s.keys, s.cursor, err = s.driver.Scan(s.cursor, match, 10).Result()
+		s.keys, s.cursor, err = s.driver.ScanUserRecords(s.cursor, match, 10)
 		if err != nil {
 			return nil, true, err
 		}
@@ -181,7 +180,7 @@ func (s *ScanExec) Next() (*result.Record, error) {
 	// Get and parse one row
 	var raw string
 	var dm map[int]*util.Datum
-	raw, err = s.driver.Get(util.ToString(key)).Result()
+	raw, err = s.driver.GetUserRecord(util.ToString(key))
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +226,7 @@ func (s *ScanExec) Done() bool {
 
 type ScanWithPKExec struct {
 	scanpk  *plan.ScanWithPK
-	driver  *redis.Client
+	driver  store.Driver
 	context *context.Context
 	done    bool
 }
@@ -315,7 +314,7 @@ func (s *ScanWithPKExec) Next() (*result.Record, error) {
 
 	// Get and parse one row
 	var dm map[int]*util.Datum
-	raw, err := s.driver.Get(pk).Result()
+	raw, err := s.driver.GetUserRecord(pk)
 	if err != nil {
 		return nil, err
 	}

@@ -11,7 +11,6 @@ import (
 	"github.com/castermode/Nesoi/src/sql/context"
 	"github.com/castermode/Nesoi/src/sql/executor"
 	"github.com/castermode/Nesoi/src/sql/store"
-	"github.com/go-redis/redis"
 	"github.com/golang/glog"
 )
 
@@ -28,7 +27,7 @@ type Server struct {
 	cfg      *Config
 	listener net.Listener
 	rwlock   *sync.RWMutex
-	driver   *redis.Client
+	driver   store.Driver
 	clients  map[uint32]*clientConn
 }
 
@@ -59,29 +58,40 @@ func randomBuf(size int) []byte {
 	return buf
 }
 
-func (svr *Server) InitStorageDriver() error {
-	svr.driver = redis.NewClient(&redis.Options{
-		Addr:     svr.cfg.RedisAddr,
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
+func (svr *Server) RegisterDriver() error {
+	var err error
 
-	if _, err := svr.driver.Ping().Result(); err != nil {
-		return err
+	if svr.cfg.StorageType == "Redis" {
+		svr.driver, err = store.NewRedisDriver(svr.cfg.RedisAddr)
+		if err != nil {
+			return err
+		}
+	} else if svr.cfg.StorageType == "NesoiKV" {
+		svr.driver, err = store.NewDistkvDriver(svr.cfg.DistSysAddr, svr.cfg.DistUserAddr)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		return errors.New("unsupport storage type!")
 	}
 
+	return nil
+}
+
+func (svr *Server) InitNesoiDB() error {
 	// init nesoi db
 	NesoiDB := store.SystemFlag + store.DBFlag + store.NesoiFlag
-	_, err := svr.driver.Get(NesoiDB).Result()
+	_, err := svr.driver.GetSysRecord(NesoiDB)
 	if err == nil {
 		return nil
 	}
 
-	if err != redis.Nil {
+	if err != store.Nil {
 		return errors.New("Get kv storage error!")
 	}
 
-	return svr.driver.Set(NesoiDB, "", 0).Err()
+	return svr.driver.SetSysRecord(NesoiDB, "", 0)
 }
 
 func (svr *Server) newClientConn(c net.Conn) *clientConn {

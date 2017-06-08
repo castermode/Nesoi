@@ -8,15 +8,14 @@ import (
 	"github.com/castermode/Nesoi/src/sql/context"
 	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/castermode/Nesoi/src/sql/util"
-	"github.com/go-redis/redis"
 )
 
 type Analyzer struct {
-	driver  *redis.Client
+	driver  store.Driver
 	context *context.Context
 }
 
-func NewAnalyzer(sd *redis.Client, ctx *context.Context) *Analyzer {
+func NewAnalyzer(sd store.Driver, ctx *context.Context) *Analyzer {
 	return &Analyzer{
 		driver:  sd,
 		context: ctx,
@@ -41,6 +40,39 @@ func (a *Analyzer) Analyze(stmts []Statement) ([]Statement, error) {
 	}
 
 	return querys, nil
+}
+
+func (a *Analyzer) getColumnDefs(tname string) (ColumnTableDefs, error) {
+	tableKey := store.SystemFlag + store.TableFlag + tname
+	tableValue, err := a.driver.GetSysRecord(tableKey)
+	if err != nil {
+		return nil, err
+	}
+
+	cjds := ColumnTableJsonDefs{}
+	cds := ColumnTableDefs{}
+	err = json.Unmarshal(util.ToSlice(tableValue), &cjds)
+	if err != nil {
+		return nil, err
+	}
+	for _, cjd := range cjds {
+		cd := &ColumnTableDef{
+			Name:       cjd.Name,
+			Pos:        cjd.Pos,
+			Nullable:   cjd.Nullable,
+			PrimaryKey: cjd.PrimaryKey,
+			Unique:     cjd.Unique,
+		}
+		switch cjd.Type {
+		case SqlInt:
+			cd.Type = &IntType{Name: "INT"}
+		case SqlString:
+			cd.Type = &StringType{Name: "STRING"}
+		}
+		cds = append(cds, cd)
+	}
+
+	return cds, nil
 }
 
 func (a *Analyzer) transformStmt(stmt Statement) (Statement, error) {
@@ -112,40 +144,14 @@ func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
 	var from *TableInfo
 	var cds ColumnTableDefs
 	var tblName string
-	var tableValue string
 	var err error
 	// transform from clause
 	if sstmt.From != nil {
 		tblName = a.context.GetTableName(sstmt.From.Schema, sstmt.From.Name)
-		tableKey := store.SystemFlag + store.TableFlag + tblName
-		tableValue, err = a.driver.Get(tableKey).Result()
+		cds, err = a.getColumnDefs(tblName)
 		if err != nil {
 			return nil, err
 		}
-
-		cjds := ColumnTableJsonDefs{}
-		cds = ColumnTableDefs{}
-		err = json.Unmarshal(util.ToSlice(tableValue), &cjds)
-		if err != nil {
-			return nil, err
-		}
-		for _, cjd := range cjds {
-			cd := &ColumnTableDef{
-				Name:       cjd.Name,
-				Pos:        cjd.Pos,
-				Nullable:   cjd.Nullable,
-				PrimaryKey: cjd.PrimaryKey,
-				Unique:     cjd.Unique,
-			}
-			switch cjd.Type {
-			case SqlInt:
-				cd.Type = &IntType{Name: "INT"}
-			case SqlString:
-				cd.Type = &StringType{Name: "STRING"}
-			}
-			cds = append(cds, cd)
-		}
-
 		var cm map[int]*ColumnTableDef
 		cm = make(map[int]*ColumnTableDef)
 		for _, cd := range cds {
@@ -227,35 +233,10 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 	istmt := stmt.(*InsertStmt)
 
 	tblName := a.context.GetTableName(istmt.TName.Schema, istmt.TName.Name)
-	tableKey := store.SystemFlag + store.TableFlag + tblName
-	tableValue, err := a.driver.Get(tableKey).Result()
+	cds, err := a.getColumnDefs(tblName)
 	if err != nil {
 		return nil, err
 	}
-
-	cjds := ColumnTableJsonDefs{}
-	cds := ColumnTableDefs{}
-	err = json.Unmarshal(util.ToSlice(tableValue), &cjds)
-	if err != nil {
-		return nil, err
-	}
-	for _, cjd := range cjds {
-		cd := &ColumnTableDef{
-			Name:       cjd.Name,
-			Pos:        cjd.Pos,
-			Nullable:   cjd.Nullable,
-			PrimaryKey: cjd.PrimaryKey,
-			Unique:     cjd.Unique,
-		}
-		switch cjd.Type {
-		case SqlInt:
-			cd.Type = &IntType{Name: "INT"}
-		case SqlString:
-			cd.Type = &StringType{Name: "STRING"}
-		}
-		cds = append(cds, cd)
-	}
-
 	pks := []int{}
 	vm := make(map[int]interface{})
 	cm := make(map[string]*ColumnTableDef)
@@ -339,12 +320,12 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 			pkv += util.ToString(util.DumpLengthEncodedString(util.ToSlice(v)))
 		}
 	}
-	_, err = a.driver.Get(pkv).Result()
+	_, err = a.driver.GetUserRecord(pkv)
 	if err == nil {
 		return nil, errors.New("primary key cann't repeat!")
 	}
 
-	if err != redis.Nil {
+	if err != store.Nil {
 		return nil, err
 	}
 
@@ -353,34 +334,11 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 
 func (a *Analyzer) transformUpdateStmt(stmt Statement) (Statement, error) {
 	ustmt := stmt.(*UpdateStmt)
-	tblName := a.context.GetTableName(ustmt.TName.Schema, ustmt.TName.Name)
-	tableKey := store.SystemFlag + store.TableFlag + tblName
-	tableValue, err := a.driver.Get(tableKey).Result()
-	if err != nil {
-		return nil, err
-	}
 
-	cjds := ColumnTableJsonDefs{}
-	cds := ColumnTableDefs{}
-	err = json.Unmarshal(util.ToSlice(tableValue), &cjds)
+	tblName := a.context.GetTableName(ustmt.TName.Schema, ustmt.TName.Name)
+	cds, err := a.getColumnDefs(tblName)
 	if err != nil {
 		return nil, err
-	}
-	for _, cjd := range cjds {
-		cd := &ColumnTableDef{
-			Name:       cjd.Name,
-			Pos:        cjd.Pos,
-			Nullable:   cjd.Nullable,
-			PrimaryKey: cjd.PrimaryKey,
-			Unique:     cjd.Unique,
-		}
-		switch cjd.Type {
-		case SqlInt:
-			cd.Type = &IntType{Name: "INT"}
-		case SqlString:
-			cd.Type = &StringType{Name: "STRING"}
-		}
-		cds = append(cds, cd)
 	}
 	cm := make(map[int]*ColumnTableDef)
 	cm1 := make(map[string]*ColumnTableDef)
@@ -388,17 +346,18 @@ func (a *Analyzer) transformUpdateStmt(stmt Statement) (Statement, error) {
 		cm[cd.Pos-1] = cd
 		cm1[cd.Name] = cd
 	}
-	
+
 	table := &TableInfo{Name: tblName, ColumnMap: cm}
-	
-	//Get all target
+
+	//Get all targetvar
+	var tgrs []*TargetRes
 	allTarget := &VariableExpr{Type: EALLTARGET}
-	tgrs, _, err := a.transformTarget(allTarget, cds)
+	tgrs, _, err = a.transformTarget(allTarget, cds)
 	if err != nil {
 		return nil, err
 	}
 	num := len(tgrs)
-	
+
 	//check columnset
 	vm := make(map[int]interface{})
 	for _, cs := range ustmt.ColumnSetList {
@@ -424,9 +383,9 @@ func (a *Analyzer) transformUpdateStmt(stmt Statement) (Statement, error) {
 				return nil, errors.New(e)
 			}
 		}
-		vm[cd.Pos - 1] = v
+		vm[cd.Pos-1] = v
 	}
-	
+
 	// transform where clause
 	var qual *ComparisonQual
 	if ustmt.Where != nil {
@@ -457,12 +416,12 @@ func (a *Analyzer) transformUpdateStmt(stmt Statement) (Statement, error) {
 			return nil, errors.New("unsupport qual target: " + ustmt.Where.Cond.String())
 		}
 	}
-	
-	return &UpdateQuery {
-		Table: table,
-		Fields: tgrs,
+
+	return &UpdateQuery{
+		Table:     table,
+		Fields:    tgrs,
 		FieldsNum: num,
-		Values: vm,
-		Qual: qual,
+		Values:    vm,
+		Qual:      qual,
 	}, nil
 }

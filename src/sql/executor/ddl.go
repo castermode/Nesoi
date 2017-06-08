@@ -9,12 +9,11 @@ import (
 	"github.com/castermode/Nesoi/src/sql/result"
 	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/castermode/Nesoi/src/sql/util"
-	"github.com/go-redis/redis"
 )
 
 type DDLExec struct {
 	stmt    parser.Statement
-	driver  *redis.Client
+	driver  store.Driver
 	context *context.Context
 	done    bool
 }
@@ -57,7 +56,7 @@ func (ddl *DDLExec) executeCreateDatabase() error {
 	stmt := ddl.stmt.(*parser.CreateDatabase)
 	dbName := store.SystemFlag + store.DBFlag + stmt.DBName
 
-	_, err := ddl.driver.Get(dbName).Result()
+	_, err := ddl.driver.GetSysRecord(dbName)
 	if err == nil {
 		if stmt.IfNotExists {
 			return nil
@@ -65,18 +64,18 @@ func (ddl *DDLExec) executeCreateDatabase() error {
 		return errors.New("database alreary exists!")
 	}
 
-	if err != redis.Nil {
+	if err != store.Nil {
 		return errors.New("get kv storage error!")
 	}
 
-	return ddl.driver.Set(dbName, "", 0).Err()
+	return ddl.driver.SetSysRecord(dbName, "", 0)
 }
 
 func (ddl *DDLExec) executeCreateTable() error {
 	stmt := ddl.stmt.(*parser.CreateTable)
 
 	tableKey := store.SystemFlag + store.TableFlag + ddl.context.GetTableName(stmt.Table.Schema, stmt.Table.Name)
-	_, err := ddl.driver.Get(tableKey).Result()
+	_, err := ddl.driver.GetSysRecord(tableKey)
 	if err == nil {
 		if stmt.IfNotExists {
 			return nil
@@ -84,7 +83,7 @@ func (ddl *DDLExec) executeCreateTable() error {
 		return errors.New("table alreary exists!")
 	}
 
-	if err != redis.Nil {
+	if err != store.Nil {
 		return errors.New("get kv storage error!")
 	}
 
@@ -115,20 +114,19 @@ func (ddl *DDLExec) executeCreateTable() error {
 		return err
 	}
 
-	return ddl.driver.Set(tableKey, util.ToString(data), 0).Err()
+	return ddl.driver.SetSysRecord(tableKey, util.ToString(data), 0)
 }
 
 func (ddl *DDLExec) executeDropDatabase() error {
 	stmt := ddl.stmt.(*parser.DropDatabase)
 
 	dbName := store.SystemFlag + store.DBFlag + stmt.DBName
-	_, err := ddl.driver.Get(dbName).Result()
+	_, err := ddl.driver.GetSysRecord(dbName)
 	if err == nil {
-		_, err = ddl.driver.Del(dbName).Result()
-		return err
+		return ddl.driver.DelSysRecord(dbName)
 	}
 
-	if err != redis.Nil {
+	if err != store.Nil {
 		return errors.New("get kv storage error!")
 	}
 
@@ -142,13 +140,12 @@ func (ddl *DDLExec) executeDropTable() error {
 	stmt := ddl.stmt.(*parser.DropTable)
 
 	TblName := store.SystemFlag + store.TableFlag + ddl.context.GetTableName(stmt.TName.Schema, stmt.TName.Name)
-	_, err := ddl.driver.Get(TblName).Result()
+	_, err := ddl.driver.GetSysRecord(TblName)
 	if err == nil {
-		_, err = ddl.driver.Del(TblName).Result()
-		return err
+		return ddl.driver.DelSysRecord(TblName)
 	}
 
-	if err != redis.Nil {
+	if err != store.Nil {
 		return errors.New("get kv storage error!")
 	}
 
@@ -162,12 +159,12 @@ func (ddl *DDLExec) executeUseDB() error {
 	stmt := ddl.stmt.(*parser.UseDB)
 
 	dbName := store.SystemFlag + store.DBFlag + stmt.DBName
-	_, err := ddl.driver.Get(dbName).Result()
+	_, err := ddl.driver.GetSysRecord(dbName)
 	if err == nil {
 		ddl.context.SetCurrentDB(stmt.DBName)
 	}
 
-	if err != redis.Nil {
+	if err != store.Nil {
 		return errors.New("get kv storage error!")
 	}
 

@@ -7,12 +7,11 @@ import (
 	"github.com/castermode/Nesoi/src/sql/result"
 	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/castermode/Nesoi/src/sql/util"
-	"github.com/go-redis/redis"
 )
 
 type InsertExec struct {
 	stmt    parser.Statement
-	driver  *redis.Client
+	driver  store.Driver
 	context *context.Context
 	done    bool
 }
@@ -48,7 +47,7 @@ func (insert *InsertExec) Next() (*result.Record, error) {
 	insert.context.SetAffectedRows(affectedRows + 1)
 	insert.done = true
 
-	err := insert.driver.Set(stmt.PK, value, 0).Err()
+	err := insert.driver.SetUserRecord(stmt.PK, value, 0)
 	return nil, err
 }
 
@@ -59,7 +58,7 @@ func (insert *InsertExec) Done() bool {
 type UpdateExec struct {
 	update   *plan.Update
 	children []result.Result
-	driver   *redis.Client
+	driver   store.Driver
 	context  *context.Context
 	done     bool
 }
@@ -135,7 +134,7 @@ func (ue *UpdateExec) Next() (*result.Record, error) {
 	affectedRows := ue.context.AffectedRows()
 	ue.context.SetAffectedRows(affectedRows + 1)
 
-	err = ue.driver.Set(key, newRaw, 0).Err()
+	err = ue.driver.SetUserRecord(key, newRaw, 0)
 	if err != nil {
 		return nil, err
 	}

@@ -9,12 +9,11 @@ import (
 	"github.com/castermode/Nesoi/src/sql/result"
 	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/castermode/Nesoi/src/sql/util"
-	"github.com/go-redis/redis"
 )
 
 type ShowExec struct {
 	context  *context.Context
-	driver   *redis.Client
+	driver   store.Driver
 	operator int
 	keys     []string
 	pos      int
@@ -69,7 +68,7 @@ func (s *ShowExec) nextKey() ([]byte, bool, error) {
 		return util.ToSlice(key), true, nil
 	} else {
 		var err error
-		s.keys, s.cursor, err = s.driver.Scan(s.cursor, match, 10).Result()
+		s.keys, s.cursor, err = s.driver.ScanSysRecords(s.cursor, match, 10)
 		if err != nil {
 			return nil, true, err
 		}

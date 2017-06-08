@@ -16,9 +16,18 @@ var (
 	shost = flag.String("shost", "0.0.0.0", "nesoi server host")
 	sport = flag.String("sport", "3306", "nesoi server port")
 
+	//storage type
+	stype = flag.String("store_type", "Redis", "storage type")
+
 	//redis flag
-	rhost = flag.String("rhost", "127.0.0.1", "redis server host")
+	rhost = flag.String("rhost", "0.0.0.0", "redis server host")
 	rport = flag.String("rport", "6379", "redis server port")
+
+	//distkv flag
+	dshost = flag.String("dshost", "0.0.0.0", "distkv server sys host")
+	dsport = flag.String("dsport", "6379", "distkv server sys port")
+	duhost = flag.String("duhost", "0.0.0.0", "distkv server user host")
+	duport = flag.String("duport", "6379", "distkv server user port")
 )
 
 func init() {
@@ -29,8 +38,11 @@ func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	cfg := &server.Config{
-		Addr:      fmt.Sprintf("%s:%s", *shost, *sport),
-		RedisAddr: fmt.Sprintf("%s:%s", *rhost, *rport),
+		Addr:         fmt.Sprintf("%s:%s", *shost, *sport),
+		RedisAddr:    fmt.Sprintf("%s:%s", *rhost, *rport),
+		StorageType:  *stype,
+		DistSysAddr:  fmt.Sprintf("%s:%s", *dshost, *dsport),
+		DistUserAddr: fmt.Sprintf("%s:%s", *duhost, *duport),
 	}
 
 	svr, err := server.NewServer(cfg)
@@ -39,9 +51,15 @@ func main() {
 		return
 	}
 
-	err = svr.InitStorageDriver()
+	err = svr.RegisterDriver()
 	if err != nil {
-		glog.Fatalf("Init storage driver error: %s", err.Error())
+		glog.Fatalf("Register storage driver error: %s", err.Error())
+		return
+	}
+
+	err = svr.InitNesoiDB()
+	if err != nil {
+		glog.Fatalf("Init nesoi database error: %s", err.Error())
 		return
 	}
 

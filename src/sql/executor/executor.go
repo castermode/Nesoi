@@ -7,18 +7,18 @@ import (
 	"github.com/castermode/Nesoi/src/sql/parser"
 	"github.com/castermode/Nesoi/src/sql/plan"
 	"github.com/castermode/Nesoi/src/sql/result"
+	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/castermode/Nesoi/src/sql/util"
-	"github.com/go-redis/redis"
 )
 
 type Executor struct {
 	parser   *parser.Parser
 	analyzer *parser.Analyzer
-	driver   *redis.Client
+	driver   store.Driver
 	context  *context.Context
 }
 
-func NewExecutor(sd *redis.Client, ctx *context.Context) *Executor {
+func NewExecutor(sd store.Driver, ctx *context.Context) *Executor {
 	return &Executor{
 		parser:   parser.NewParser(),
 		analyzer: parser.NewAnalyzer(sd, ctx),
