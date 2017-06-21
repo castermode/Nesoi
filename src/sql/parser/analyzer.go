@@ -93,6 +93,10 @@ func (a *Analyzer) transformStmt(stmt Statement) (Statement, error) {
 }
 
 func (a *Analyzer) transformTarget(expr Expr, cds ColumnTableDefs) ([]*TargetRes, bool, error) {
+	if expr == nil {
+		return nil, false, errors.New("invalid target value")
+	}
+
 	tgrs := []*TargetRes{}
 	switch expr.(type) {
 	case *VariableExpr:
