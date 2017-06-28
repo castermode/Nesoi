@@ -68,7 +68,7 @@ func (s *ShowExec) nextKey() ([]byte, bool, error) {
 		return util.ToSlice(key), true, nil
 	} else {
 		var err error
-		s.keys, s.cursor, err = s.driver.ScanSysRecords(s.cursor, match, 10)
+		s.keys, s.cursor, err = s.driver.ScanSysRecords(s.cursor, match, OnceScanCount)
 		if err != nil {
 			return nil, true, err
 		}

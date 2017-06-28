@@ -13,6 +13,10 @@ import (
 	"github.com/castermode/Nesoi/src/sql/util"
 )
 
+const (
+	OnceScanCount int64 = 100
+)
+
 type ScanExec struct {
 	scan    *plan.Scan
 	driver  store.Driver
@@ -97,7 +101,7 @@ func (s *ScanExec) nextKey() ([]byte, bool, error) {
 	} else {
 		var err error
 		match := store.UserFlag + s.scan.From.Name + "/*"
-		s.keys, s.cursor, err = s.driver.ScanUserRecords(s.cursor, match, 10)
+		s.keys, s.cursor, err = s.driver.ScanUserRecords(s.cursor, match, OnceScanCount)
 		if err != nil {
 			return nil, true, err
 		}
