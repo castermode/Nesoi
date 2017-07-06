@@ -6,6 +6,7 @@ import (
 
 	"github.com/castermode/Nesoi/src/sql/context"
 	"github.com/castermode/Nesoi/src/sql/parser"
+	"github.com/castermode/Nesoi/src/sql/plan"
 	"github.com/castermode/Nesoi/src/sql/result"
 	"github.com/castermode/Nesoi/src/sql/store"
 	"github.com/castermode/Nesoi/src/sql/util"
@@ -33,6 +34,8 @@ func (ddl *DDLExec) Next() (*result.Record, error) {
 		err = ddl.executeCreateDatabase()
 	case *parser.CreateTable:
 		err = ddl.executeCreateTable()
+	case *parser.CreateIndex:
+		err = ddl.executeCreateIndex()
 	case *parser.DropDatabase:
 		err = ddl.executeDropDatabase()
 	case *parser.DropTable:
@@ -115,6 +118,78 @@ func (ddl *DDLExec) executeCreateTable() error {
 	}
 
 	return ddl.driver.SetSysRecord(tableKey, util.ToString(data), 0)
+}
+
+func (ddl *DDLExec) executeCreateIndex() error {
+	stmt := ddl.stmt.(*parser.CreateIndexQuery)
+
+	plan := &plan.Scan{
+		From:      stmt.TblInfo,
+		Fields:    stmt.Fields,
+		FieldsNum: stmt.FieldsNum,
+	}
+	rst := &ScanExec{scan: plan, driver: ddl.driver, context: ddl.context}
+	tblName := ddl.context.GetTableName(stmt.Table.Schema, stmt.Table.Name)
+	idxName := ddl.context.GetTableName(stmt.Index.Schema, stmt.Index.Name)
+	for {
+		var value string
+		var newValue string
+		key, rc, err := rst.nextKV()
+		if err != nil {
+			return err
+		}
+
+		newKey := store.UserFlag + idxName + "/"
+		if rc != nil {
+			for _, datum := range rc.Datums {
+				raw, err := util.DumpValueToRaw(datum)
+				if err != nil {
+					return err
+				}
+				newKey += util.ToString(raw)
+			}
+		} else {
+			break
+		}
+
+		value, err = ddl.driver.GetUserRecord(newKey)
+		if err == nil {
+			if stmt.Unique {
+				return errors.New("index repeat!")
+			}
+			numKeys, _, num := util.ParseLengthEncodedInt(util.ToSlice(value))
+			newValue += util.ToString(util.DumpLengthEncodedInt(numKeys + 1))
+			newValue += value[num:]
+			newValue += util.ToString(util.DumpLengthEncodedString(util.ToSlice(key)))
+
+		} else if err == store.Nil {
+			newValue += util.ToString(util.DumpLengthEncodedInt(1))
+			newValue += util.ToString(util.DumpLengthEncodedString(util.ToSlice(key)))
+		} else {
+			return err
+		}
+
+		err = ddl.driver.SetUserRecord(newKey, newValue, 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	//system table(index->table)
+	sysIndexTableKey := store.SystemFlag + store.IndexFlag + store.TableFlag + idxName
+	sysIndexTableValue := util.ToString(util.DumpLengthEncodedString(util.ToSlice(tblName)))
+	sysIndexTableValue += util.ToString(util.DumpLengthEncodedInt(uint64(stmt.FieldsNum)))
+	for _, fd := range stmt.Fields {
+		sysIndexTableValue += util.ToString(util.DumpLengthEncodedInt(uint64(fd.FieldID)))
+	}
+	err := ddl.driver.SetSysRecord(sysIndexTableKey, sysIndexTableValue, 0)
+	if err != nil {
+		return err
+	}
+	//system table(table->index)
+	sysTableIndexKey := store.SystemFlag + store.TableFlag + store.IndexFlag + sysIndexTableValue
+	sysTableIndexValue := idxName
+	return ddl.driver.SetSysRecord(sysTableIndexKey, sysTableIndexValue, 0)
 }
 
 func (ddl *DDLExec) executeDropDatabase() error {

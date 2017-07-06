@@ -25,18 +25,27 @@ func NewAnalyzer(sd store.Driver, ctx *context.Context) *Analyzer {
 func (a *Analyzer) Analyze(stmts []Statement) ([]Statement, error) {
 	var querys []Statement
 	for _, stmt := range stmts {
+		var query Statement
+		var err error
 		switch stmt.StatementType() {
 		case DDL:
-			querys = append(querys, stmt)
+			if _, ok := stmt.(*CreateIndex); ok {
+				query, err = a.transformStmt(stmt)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				query = stmt
+			}
 		case Rows, RowsAffected:
-			query, err := a.transformStmt(stmt)
+			query, err = a.transformStmt(stmt)
 			if err != nil {
 				return nil, err
 			}
-			querys = append(querys, query)
 		default:
 			return nil, errors.New("unsupport statement: " + stmt.String())
 		}
+		querys = append(querys, query)
 	}
 
 	return querys, nil
@@ -83,6 +92,8 @@ func (a *Analyzer) transformStmt(stmt Statement) (Statement, error) {
 		return a.transformInsertStmt(stmt)
 	case *UpdateStmt:
 		return a.transformUpdateStmt(stmt)
+	case *CreateIndex:
+		return a.transformCreateIndex(stmt)
 	case *ShowDatabases:
 		return &Show{Operator: SDATABASES}, nil
 	case *ShowTables:
@@ -140,6 +151,78 @@ func (a *Analyzer) transformTarget(expr Expr, cds ColumnTableDefs) ([]*TargetRes
 	}
 
 	return nil, false, errors.New("unsupport target type: " + expr.String())
+}
+
+func (a *Analyzer) transformCreateIndex(stmt Statement) (Statement, error) {
+	cistmt := stmt.(*CreateIndex)
+
+	// transform table
+	tblName := a.context.GetTableName(cistmt.Table.Schema, cistmt.Table.Name)
+	idxName := a.context.GetTableName(cistmt.Index.Schema, cistmt.Table.Name)
+	cds, err := a.getColumnDefs(tblName)
+	if err != nil {
+		return nil, err
+	}
+	var cm map[int]*ColumnTableDef
+	cm = make(map[int]*ColumnTableDef)
+	for _, cd := range cds {
+		cm[cd.Pos-1] = cd
+	}
+	table := &TableInfo{Name: tblName, ColumnMap: cm}
+
+	//transform target
+	i := 1
+	var tgrs []*TargetRes
+	for _, target := range cistmt.Targets {
+		tgrs1, all, err := a.transformTarget(target.Item, cds)
+		if err != nil {
+			return nil, err
+		}
+
+		if all {
+			tgrs = tgrs1
+			i = len(tgrs) + 1
+			break
+		} else {
+			tgr := tgrs1[0]
+			tgr.TargetID = i
+			tgrs = append(tgrs, tgr)
+		}
+		i++
+	}
+
+	//transform index
+	sysIndexTableKey := store.SystemFlag + store.IndexFlag + store.TableFlag + idxName
+	_, err = a.driver.GetSysRecord(sysIndexTableKey)
+	if err == nil {
+		return nil, errors.New("index name already exists!")
+	}
+	if err != store.Nil {
+		return nil, err
+	}
+	fieldsNum := len(tgrs)
+	sysTableIndexKey := store.SystemFlag + store.TableFlag + store.IndexFlag
+	sysTableIndexKey += util.ToString(util.DumpLengthEncodedString(util.ToSlice(tblName)))
+	sysTableIndexKey += util.ToString(util.DumpLengthEncodedInt(uint64(fieldsNum)))
+	for _, tgr := range tgrs {
+		sysTableIndexKey += util.ToString(util.DumpLengthEncodedInt(uint64(tgr.FieldID)))
+	}
+	_, err = a.driver.GetSysRecord(sysTableIndexKey)
+	if err == nil {
+		return nil, errors.New("index column has already exists!")
+	}
+	if err != store.Nil {
+		return nil, err
+	}
+
+	return &CreateIndexQuery{
+		Index:     cistmt.Index,
+		Table:     cistmt.Table,
+		TblInfo:   table,
+		Unique:    cistmt.Unique,
+		Fields:    tgrs,
+		FieldsNum: fieldsNum,
+	}, nil
 }
 
 func (a *Analyzer) transformSelectStmt(stmt Statement) (Statement, error) {
@@ -326,7 +409,7 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 	}
 	_, err = a.driver.GetUserRecord(pkv)
 	if err == nil {
-		return nil, errors.New("primary key cann't repeat!")
+		return nil, errors.New("primary key can't repeat!")
 	}
 
 	if err != store.Nil {

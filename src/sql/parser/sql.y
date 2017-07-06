@@ -28,6 +28,7 @@ package parser
 %type <stmt>	Stmt
 %type <stmt>	CreateDatabaseStmt
 %type <stmt>	CreateTableStmt
+%type <stmt>	CreateIndexStmt
 %type <stmt>	DropDatabaseStmt
 %type <stmt>	DropTableStmt
 %type <stmt>	SelectStmt
@@ -120,6 +121,7 @@ StmtList:
 Stmt:
 	CreateDatabaseStmt
 |	CreateTableStmt
+|	CreateIndexStmt
 |	SelectStmt
 |	InsertStmt
 |	UpdateStmt
@@ -321,6 +323,16 @@ CreateTableStmt:
 	{
 		$$ = &CreateTable{Table: $6, IfNotExists: true, Defs: $8}
   	}
+	
+CreateIndexStmt:
+	CREATE INDEX TableName ON TableName '(' TargetClause ')'
+	{
+		$$ = &CreateIndex{Index: $3, Table: $5, Unique: false, Targets: $7}
+	}
+|	CREATE UNIQUE INDEX TableName ON TableName '(' TargetClause ')'
+	{
+		$$ = &CreateIndex{Index: $4, Table: $6, Unique: true, Targets: $8}
+	}
 
 TableName:
 	Name

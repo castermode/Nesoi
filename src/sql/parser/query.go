@@ -88,3 +88,16 @@ type UpdateQuery struct {
 func (node *UpdateQuery) String() string {
 	return "UPDATE QUERY"
 }
+
+type CreateIndexQuery struct {
+	Index     *TableName
+	Table     *TableName
+	TblInfo   *TableInfo
+	Unique    bool
+	Fields    []*TargetRes
+	FieldsNum int
+}
+
+func (node *CreateIndexQuery) String() string {
+	return "CREATE INDEX QUERY"
+}

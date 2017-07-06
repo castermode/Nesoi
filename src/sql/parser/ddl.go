@@ -137,6 +137,25 @@ func (node *CreateTable) String() string {
 	return buf.String()
 }
 
+type CreateIndex struct {
+	Index   *TableName
+	Table   *TableName
+	Unique  bool
+	Targets TargetClause
+}
+
+func (node *CreateIndex) String() string {
+	var buf bytes.Buffer
+	buf.WriteString("CREATE")
+	if node.Unique {
+		buf.WriteString(" UNIQUE INDEX")
+	} else {
+		buf.WriteString(" INDEX")
+	}
+	fmt.Fprintf(&buf, " %s ON %s (%s)", node.Index, node.Table, node.Targets)
+	return buf.String()
+}
+
 type DropDatabase struct {
 	IfExists bool
 	DBName   string

@@ -163,6 +163,11 @@ func parseColumnValue(raw string, cm map[int]*parser.ColumnTableDef) (map[int]*u
 }
 
 func (s *ScanExec) Next() (*result.Record, error) {
+	_, v, err := s.nextKV()
+	return v, err
+}
+
+func (s *ScanExec) nextKV() (string, *result.Record, error) {
 	var key []byte
 	var exist bool
 	var err error
@@ -170,10 +175,10 @@ func (s *ScanExec) Next() (*result.Record, error) {
 	for {
 		key, exist, err = s.nextKey()
 		if err != nil {
-			return nil, err
+			return "", nil, err
 		}
 		if !exist {
-			return nil, nil
+			return "", nil, nil
 		}
 
 		if key != nil {
@@ -186,11 +191,11 @@ func (s *ScanExec) Next() (*result.Record, error) {
 	var dm map[int]*util.Datum
 	raw, err = s.driver.GetUserRecord(util.ToString(key))
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	dm, err = parseColumnValue(raw, s.scan.From.ColumnMap)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	var datums []*util.Datum = make([]*util.Datum, 0)
@@ -201,13 +206,13 @@ func (s *ScanExec) Next() (*result.Record, error) {
 			var ok bool
 			d, ok = dm[f.FieldID-1]
 			if !ok {
-				return nil, errors.New("parse column value error!")
+				return "", nil, errors.New("parse column value error!")
 			}
 		case parser.ESYSVAR:
 			d = &util.Datum{}
 			sv := context.GetSysVar(f.SysVar)
 			if sv == nil {
-				return nil, errors.New("unsupport sysvar @@" + f.SysVar)
+				return "", nil, errors.New("unsupport sysvar @@" + f.SysVar)
 			}
 			d.SetK(util.KindString)
 			d.SetB(util.ToSlice(sv.Name))
@@ -215,13 +220,13 @@ func (s *ScanExec) Next() (*result.Record, error) {
 			var err error
 			d, err = valueToDatum(f.Value)
 			if err != nil {
-				return nil, err
+				return "", nil, err
 			}
 		}
 		datums = append(datums, d)
 	}
 
-	return &result.Record{Datums: datums}, nil
+	return util.ToString(key), &result.Record{Datums: datums}, nil
 }
 
 func (s *ScanExec) Done() bool {

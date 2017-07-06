@@ -32,6 +32,10 @@ func (*CreateTable) StatementType() int {
 	return DDL
 }
 
+func (*CreateIndex) StatementType() int {
+	return DDL
+}
+
 func (*DropDatabase) StatementType() int {
 	return DDL
 }
@@ -78,4 +82,8 @@ func (*InsertQuery) StatementType() int {
 
 func (*UpdateQuery) StatementType() int {
 	return RowsAffected
+}
+
+func (*CreateIndexQuery) StatementType() int {
+	return DDL
 }
