@@ -34,7 +34,7 @@ func (ddl *DDLExec) Next() (*result.Record, error) {
 		err = ddl.executeCreateDatabase()
 	case *parser.CreateTable:
 		err = ddl.executeCreateTable()
-	case *parser.CreateIndex:
+	case *parser.CreateIndexQuery:
 		err = ddl.executeCreateIndex()
 	case *parser.DropDatabase:
 		err = ddl.executeDropDatabase()
