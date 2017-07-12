@@ -416,7 +416,7 @@ func (a *Analyzer) transformInsertStmt(stmt Statement) (Statement, error) {
 		return nil, err
 	}
 
-	return &InsertQuery{NumColumns: len(cds), PK: pkv, Values: vm}, nil
+	return &InsertQuery{NumColumns: len(cds), TableName: tblName, PK: pkv, Values: vm}, nil
 }
 
 func (a *Analyzer) transformUpdateStmt(stmt Statement) (Statement, error) {

@@ -120,6 +120,36 @@ func (ddl *DDLExec) executeCreateTable() error {
 	return ddl.driver.SetSysRecord(tableKey, util.ToString(data), 0)
 }
 
+func WriteIndexInfo(driver store.Driver, unique bool, key string, value string) error {
+	var newValue string
+	oldValue, err := driver.GetUserRecord(key)
+	if err == nil {
+		if unique {
+			return errors.New("index repeat!")
+		}
+		numKeys, _, num := util.ParseLengthEncodedInt(util.ToSlice(value))
+		newValue += util.ToString(util.DumpLengthEncodedInt(numKeys + 1))
+		newValue += oldValue[num:]
+		newValue += util.ToString(util.DumpLengthEncodedString(util.ToSlice(value)))
+	} else if err == store.Nil {
+		newValue += util.ToString(util.DumpLengthEncodedInt(1))
+		newValue += util.ToString(util.DumpLengthEncodedString(util.ToSlice(value)))
+	} else {
+		return err
+	}
+
+	return driver.SetUserRecord(key, newValue, 0)
+}
+
+/*
+ * create index on table, we storage index info as:
+ * system:
+ * 		/SYSTEM/INDEX/TABLE/idxName "F + Encoded table name + Encoded Fields Num + Encoded FieldID + ... "
+ *      F: unique or not
+ * 		/SYSTEM/TABLE/INDEX/+ Encoded table name + Encoded Fields Num + Encoded FieldID + ... idxName
+ * user:
+ *		/USER/idxName/+ Encoded Field Value + ...	Encoded numKeys + Encoded Primary key + ...
+ */
 func (ddl *DDLExec) executeCreateIndex() error {
 	stmt := ddl.stmt.(*parser.CreateIndexQuery)
 
@@ -132,8 +162,6 @@ func (ddl *DDLExec) executeCreateIndex() error {
 	tblName := ddl.context.GetTableName(stmt.Table.Schema, stmt.Table.Name)
 	idxName := ddl.context.GetTableName(stmt.Index.Schema, stmt.Index.Name)
 	for {
-		var value string
-		var newValue string
 		key, rc, err := rst.nextKV()
 		if err != nil {
 			return err
@@ -151,43 +179,33 @@ func (ddl *DDLExec) executeCreateIndex() error {
 		} else {
 			break
 		}
-
-		value, err = ddl.driver.GetUserRecord(newKey)
-		if err == nil {
-			if stmt.Unique {
-				return errors.New("index repeat!")
-			}
-			numKeys, _, num := util.ParseLengthEncodedInt(util.ToSlice(value))
-			newValue += util.ToString(util.DumpLengthEncodedInt(numKeys + 1))
-			newValue += value[num:]
-			newValue += util.ToString(util.DumpLengthEncodedString(util.ToSlice(key)))
-
-		} else if err == store.Nil {
-			newValue += util.ToString(util.DumpLengthEncodedInt(1))
-			newValue += util.ToString(util.DumpLengthEncodedString(util.ToSlice(key)))
-		} else {
-			return err
-		}
-
-		err = ddl.driver.SetUserRecord(newKey, newValue, 0)
+		err = WriteIndexInfo(ddl.driver, stmt.Unique, newKey, key)
 		if err != nil {
 			return err
 		}
 	}
 
 	//system table(index->table)
+	var sysIndexTableValue string
 	sysIndexTableKey := store.SystemFlag + store.IndexFlag + store.TableFlag + idxName
-	sysIndexTableValue := util.ToString(util.DumpLengthEncodedString(util.ToSlice(tblName)))
-	sysIndexTableValue += util.ToString(util.DumpLengthEncodedInt(uint64(stmt.FieldsNum)))
-	for _, fd := range stmt.Fields {
-		sysIndexTableValue += util.ToString(util.DumpLengthEncodedInt(uint64(fd.FieldID)))
+	if stmt.Unique {
+		sysIndexTableValue = "1"
+	} else {
+		sysIndexTableValue = "0"
 	}
+	sysIndexTableValue += util.ToString(util.DumpLengthEncodedString(util.ToSlice(tblName)))
+	encodedFields := util.ToString(util.DumpLengthEncodedInt(uint64(stmt.FieldsNum)))
+	for _, fd := range stmt.Fields {
+		encodedFields += util.ToString(util.DumpLengthEncodedInt(uint64(fd.FieldID)))
+	}
+	sysIndexTableValue += encodedFields
 	err := ddl.driver.SetSysRecord(sysIndexTableKey, sysIndexTableValue, 0)
 	if err != nil {
 		return err
 	}
 	//system table(table->index)
-	sysTableIndexKey := store.SystemFlag + store.TableFlag + store.IndexFlag + sysIndexTableValue
+	sysTableIndexKey := store.SystemFlag + store.TableFlag + store.IndexFlag + tblName
+	sysTableIndexKey += encodedFields
 	sysTableIndexValue := idxName
 	return ddl.driver.SetSysRecord(sysTableIndexKey, sysTableIndexValue, 0)
 }

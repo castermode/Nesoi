@@ -69,6 +69,7 @@ func (node *Show) String() string {
 
 type InsertQuery struct {
 	NumColumns int
+	TableName  string
 	PK         string
 	Values     map[int]interface{}
 }
